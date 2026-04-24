@@ -20,7 +20,6 @@ dependencies:
   just_audio: ^0.9.38
   audio_service: ^0.18.14
   on_audio_query: ^2.9.0
-  # just_audio_equalizer: ^0.0.4  # TODO: Add later
 
   # Downloader
   flutter_downloader: ^1.11.6
@@ -58,7 +57,7 @@ dependencies:
   flutter_local_notifications: ^17.1.2
 
   # Subtitle
-  # flutter_subtitle_wrapper: ^0.0.4  # TODO: Add later
+  # flutter_subtitle_wrapper: ^0.0.4
 
   # Thumbnails
   video_thumbnail: ^0.5.3
@@ -68,9 +67,6 @@ dependencies:
 
   # Persistence
   shared_preferences: ^2.2.3
-
-  # Chromecast
-  # cast: ^1.0.0  # TODO: Add later
 
   # Utils
   intl: ^0.20.2

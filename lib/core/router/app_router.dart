@@ -1,5 +1,5 @@
 import 'package:go_router/go_router.dart';
-import 'package:vidmaster/main_screen.dart';
+import 'package:vidmaster/core/widgets/main_shell.dart';
 import 'package:vidmaster/features/video_player/presentation/screens/video_library_screen.dart';
 import 'package:vidmaster/features/music_player/presentation/screens/music_library_screen.dart';
 import 'package:vidmaster/features/downloader/presentation/screens/downloads_screen.dart';
@@ -27,7 +27,7 @@ class AppRouter {
     initialLocation: '/videos',
     routes: [
       ShellRoute(
-        builder: (context, state, child) => MainScreen(child: child),
+        builder: (context, state, child) => MainShell(child: child),
         routes: [
           GoRoute(
             path: '/videos',

@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../providers/music_player_provider.dart';
 
 class MiniPlayerBar extends ConsumerWidget {
@@ -19,7 +21,11 @@ class MiniPlayerBar extends ConsumerWidget {
 
     return GestureDetector(
       onTap: () {
-        // TODO: navigate to NowPlayingScreen
+        context.push(AppRoutes.nowPlaying, extra: {
+          'track': state.currentTrack,
+          'queue': state.queue,
+          'queueIndex': state.currentIndex,
+        });
       },
       child: Container(
         height: 60,

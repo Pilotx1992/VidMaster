@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../providers/music_library_provider.dart';
+import '../providers/music_player_provider.dart';
 
 class MusicLibraryScreen extends ConsumerStatefulWidget {
   const MusicLibraryScreen({super.key});
@@ -13,6 +16,7 @@ class MusicLibraryScreen extends ConsumerStatefulWidget {
 class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -35,7 +39,17 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Music Library'),
+        title: _isSearching
+            ? TextField(
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search songs...',
+                  border: InputBorder.none,
+                ),
+                style: const TextStyle(color: Colors.white),
+                onChanged: (v) => ref.read(musicLibraryProvider.notifier).setSearchQuery(v),
+              )
+            : const Text('Music Library'),
         bottom: TabBar(
           controller: _tabController,
           labelColor: Theme.of(context).colorScheme.onPrimary,
@@ -58,9 +72,14 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
             },
           ),
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
             onPressed: () {
-              // TODO: Implement search expansion
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  ref.read(musicLibraryProvider.notifier).setSearchQuery('');
+                }
+              });
             },
           ),
         ],
@@ -160,8 +179,12 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
             style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           onTap: () {
-            // TODO: Start playback
-            // e.g. ref.read(musicPlayerProvider.notifier).playTrack(track);
+            ref.read(musicPlayerProvider.notifier).playQueue(tracks, initialIndex: index);
+            context.push(AppRoutes.nowPlaying, extra: {
+              'track': track,
+              'queue': tracks,
+              'queueIndex': index,
+            });
           },
         );
       },
@@ -181,6 +204,15 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
         return ListTile(
           leading: const Icon(Icons.album),
           title: Text(album, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+          onTap: () {
+             final albumTracks = state.tracks.where((t) => t.album == album).toList();
+             ref.read(musicPlayerProvider.notifier).playQueue(albumTracks);
+             context.push(AppRoutes.nowPlaying, extra: {
+              'track': albumTracks.first,
+              'queue': albumTracks,
+              'queueIndex': 0,
+            });
+          },
         );
       },
     );
@@ -199,13 +231,40 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
         return ListTile(
           leading: const Icon(Icons.person),
           title: Text(artist, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+          onTap: () {
+             final artistTracks = state.tracks.where((t) => t.artist == artist).toList();
+             ref.read(musicPlayerProvider.notifier).playQueue(artistTracks);
+             context.push(AppRoutes.nowPlaying, extra: {
+              'track': artistTracks.first,
+              'queue': artistTracks,
+              'queueIndex': 0,
+            });
+          },
         );
       },
     );
   }
 
   Widget _buildPlaylistsTab(MusicLibraryState state) {
-    return _buildEmptyState('Playlists are coming soon!');
+    if (state.playlists.isEmpty) {
+      return _buildEmptyState('No playlists yet.');
+    }
+
+    return ListView.builder(
+      itemCount: state.playlists.length,
+      padding: const EdgeInsetsDirectional.all(8),
+      itemBuilder: (context, index) {
+        final playlist = state.playlists[index];
+        return ListTile(
+          leading: const Icon(Icons.playlist_play),
+          title: Text(playlist.name, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+          subtitle: Text('${playlist.trackIds.length} songs', style: const TextStyle(fontSize: 12)),
+          onTap: () {
+             // Implementation for loading playlist tracks would go here
+          },
+        );
+      },
+    );
   }
 
   Widget _buildEmptyState(String message) {

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/music_player/data/audio_handler.dart';
+import 'features/settings/presentation/providers/settings_provider.dart';
 import 'di.dart';
 
 void main() async {
@@ -63,16 +64,18 @@ void main() async {
   );
 }
 
-class VidMasterApp extends StatelessWidget {
+class VidMasterApp extends ConsumerWidget {
   const VidMasterApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
     return MaterialApp.router(
       title: 'VidMaster',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark, // Default to dark as per PRD
+      themeMode: settings.themeMode,
       routerConfig: AppRouter.router,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -83,7 +86,7 @@ class VidMasterApp extends StatelessWidget {
         Locale('en'), // English
         Locale('ar'), // Arabic
       ],
-      locale: const Locale('ar'), // Default to Arabic as per target market
+      locale: Locale(settings.locale),
       debugShowCheckedModeBanner: false,
     );
   }

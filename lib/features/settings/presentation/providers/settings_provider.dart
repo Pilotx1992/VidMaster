@@ -19,7 +19,7 @@ class AppSettings {
 
   const AppSettings({
     this.themeMode = ThemeMode.dark,
-    this.locale = 'en',
+    this.locale = 'ar',
     this.seekDurationSeconds = 10,
     this.autoRotate = true,
     this.resumePlayback = true,
@@ -64,7 +64,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
   static AppSettings _loadSettings(SharedPreferences prefs) {
     return AppSettings(
       themeMode: ThemeMode.values[prefs.getInt('themeMode') ?? ThemeMode.dark.index],
-      locale: prefs.getString('locale') ?? 'en',
+      locale: prefs.getString('locale') ?? 'ar',
       seekDurationSeconds: prefs.getInt('seekDurationSeconds') ?? 10,
       autoRotate: prefs.getBool('autoRotate') ?? true,
       resumePlayback: prefs.getBool('resumePlayback') ?? true,
