@@ -47,9 +47,11 @@ app.*.map.json
 # Temporary / Analysis files
 *.zip
 *.txt
-BLUEPRINT.md
-VidMaster.md
-Fix2.md
+*.md
+!README.md
+!BLUEPRINT.md
+!VidMaster.md
+
 analyze_current*.txt
 analyze_errors*.txt
 errors_only.txt
