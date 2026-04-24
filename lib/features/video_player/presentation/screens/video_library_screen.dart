@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
-import '../../../../shared/widgets/states/states.dart';
+import '../../../../core/widgets/states/states.dart';
 import '../providers/video_library_provider.dart';
 import '../widgets/video_thumbnail_card.dart';
 
@@ -123,7 +123,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
             itemBuilder: (context, index) => ListTile(
               leading: const Icon(Icons.movie, color: Colors.white54),
               title: Text(videos[index].fileName, style: const TextStyle(color: Colors.white)),
-              subtitle: Text(videos[index].fileSizeFormatted, style: const TextStyle(color: Colors.white38)),
+              subtitle: Text(videos[index].formattedSize, style: const TextStyle(color: Colors.white38)),
               onTap: () => context.push(AppRoutes.player, extra: {
                 'video': videos[index],
                 'queue': videos,

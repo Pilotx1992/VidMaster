@@ -20,7 +20,7 @@ void main() {
       when(() => mockPrefs.getBool(any())).thenReturn(null);
       
       final notifier = SettingsNotifier(mockPrefs);
-      final state = notifier.debugState;
+      final state = notifier.currentState;
 
       expect(state.themeMode, ThemeMode.dark);
       expect(state.locale, 'ar');
@@ -32,12 +32,12 @@ void main() {
       final notifier = SettingsNotifier(mockPrefs);
       notifier.setThemeMode(ThemeMode.light);
 
-      expect(notifier.debugState.themeMode, ThemeMode.light);
+      expect(notifier.currentState.themeMode, ThemeMode.light);
       verify(() => mockPrefs.setInt('themeMode', ThemeMode.light.index)).called(1);
     });
   });
 }
 
 extension SettingsNotifierTestX on SettingsNotifier {
-  AppSettings get debugState => state;
+  AppSettings get currentState => state;
 }
