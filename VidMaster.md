@@ -1372,13 +1372,21 @@ SRT, ASS, SSA, VTT, SUB, IDX, SMI, TTML, LRC (music lyrics)
 ```xml
 <!-- Audio playback foreground service (Android 14 requires foregroundServiceType) -->
 <service
-    android:name="com.ryanheise.audioservice.AudioServiceFragmentActivity"
+    android:name="com.ryanheise.audioservice.AudioService"
     android:foregroundServiceType="mediaPlayback"
     android:exported="true">
     <intent-filter>
         <action android:name="android.media.browse.MediaBrowserService" />
     </intent-filter>
 </service>
+
+<receiver
+    android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.intent.action.MEDIA_BUTTON" />
+    </intent-filter>
+</receiver>
 
 <!-- Download foreground service -->
 <service
@@ -1412,7 +1420,6 @@ dependencies:
   just_audio: ^0.9.38
   audio_service: ^0.18.14
   on_audio_query: ^2.9.0
-  just_audio_equalizer: ^0.0.4
 
   # Downloader
   flutter_downloader: ^1.11.6
@@ -1447,7 +1454,7 @@ dependencies:
   flutter_local_notifications: ^17.1.2
 
   # Subtitle
-  flutter_subtitle_wrapper: ^0.0.4
+  # flutter_subtitle_wrapper: ^0.0.4
 
   # Thumbnails
   video_thumbnail: ^0.5.3

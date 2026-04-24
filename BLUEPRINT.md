@@ -125,7 +125,6 @@ vidmaster/
 │
 ├── lib/
 │   ├── main.dart                           ← App entry point + all initializations
-│   ├── main_screen.dart                    ← Root screen (auth gate)
 │   ├── di.dart                             ← Dependency injection (all providers)
 │   │
 │   ├── core/
@@ -369,13 +368,21 @@ vidmaster/
 
 <!-- audio_service — foregroundServiceType required on Android 14 -->
 <service
-    android:name="com.ryanheise.audioservice.AudioServiceFragmentActivity"
+    android:name="com.ryanheise.audioservice.AudioService"
     android:foregroundServiceType="mediaPlayback"
     android:exported="true">
     <intent-filter>
         <action android:name="android.media.browse.MediaBrowserService"/>
     </intent-filter>
 </service>
+
+<receiver
+    android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.intent.action.MEDIA_BUTTON" />
+    </intent-filter>
+</receiver>
 
 <!-- flutter_downloader — foregroundServiceType required on Android 14 -->
 <service
