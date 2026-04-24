@@ -46,13 +46,14 @@ app.*.map.json
 
 # Temporary / Analysis files
 *.zip
-*.txt
-*.md
-!README.md
-!BLUEPRINT.md
-!VidMaster.md
-
-analyze_current*.txt
-analyze_errors*.txt
+Fix2.md
+analysis_output.txt
+analyze_current.txt
+analyze_current_2.txt
+analyze_errors.txt
+analyze_errors2.txt
+analyze_output.txt
 errors_only.txt
 deprecated_list.txt
+vidmaster_lib.zip
+vidmaster_review.zip
