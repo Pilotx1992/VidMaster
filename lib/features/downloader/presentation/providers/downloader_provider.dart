@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:isolate';
+import 'dart:ui';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -67,9 +69,9 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
   final GetAllDownloads _getAllDownloads;
   final DeleteDownloadRecord _deleteDownload;
 
-  // flutter_downloader communicates via a static ReceivePort.
-  // We register a callback to receive progress updates.
-  static DownloaderNotifier? _instance;
+  // flutter_downloader communicates via a background isolate.
+  // We use IsolateNameServer and ReceivePort to route updates to the UI thread.
+  final ReceivePort _port = ReceivePort();
 
   DownloaderNotifier({
     required ValidateDownloadUrl probeUrl,
@@ -89,22 +91,34 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
         _getAllDownloads = getAllDownloads,
         _deleteDownload = deleteDownload,
         super(const DownloaderState()) {
-    _instance = this;
-    _registerDownloaderCallback();
+    _initDownloaderCommunication();
     loadDownloads();
   }
 
-  // ── flutter_downloader callback (must be a top-level/static function) ─────
+  // ── flutter_downloader callback (background isolate communication) ────────
 
-  void _registerDownloaderCallback() {
+  void _initDownloaderCommunication() {
+    IsolateNameServer.removePortNameMapping('downloader_send_port');
+    IsolateNameServer.registerPortWithName(_port.sendPort, 'downloader_send_port');
+    
+    _port.listen((dynamic data) {
+      if (data is List && data.length == 3) {
+        final id = data[0] as String;
+        final status = data[1] as int;
+        final progress = data[2] as int;
+        _onDownloadProgress(id, status, progress);
+      }
+    });
+
     FlutterDownloader.registerCallback(_downloaderCallback);
   }
 
   /// Top-level callback required by flutter_downloader.
-  /// Routes progress updates back into the notifier state.
+  /// Runs on a background isolate, so we use a SendPort to notify the main thread.
   @pragma('vm:entry-point')
   static void _downloaderCallback(String id, int status, int progress) {
-    _instance?._onDownloadProgress(id, status, progress);
+    final SendPort? send = IsolateNameServer.lookupPortByName('downloader_send_port');
+    send?.send([id, status, progress]);
   }
 
   void _onDownloadProgress(String taskId, int statusCode, int progress) {
@@ -148,8 +162,13 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
     required String fileName,
     bool wifiOnly = false,
   }) async {
-    final dir = await getExternalStorageDirectory();
-    final path = '${dir?.path ?? '/storage/emulated/0/Download'}/VidMaster';
+    // On Windows, getExternalStorageDirectory() usually returns null.
+    // We should use getDownloadsDirectory() or getApplicationDocumentsDirectory() as a fallback.
+    final dir = await getExternalStorageDirectory() ?? 
+                await getDownloadsDirectory() ?? 
+                await getApplicationDocumentsDirectory();
+    
+    final path = '${dir.path}/VidMaster';
 
     final result = await _startDownload(StartDownloadParams(
       url: url,
@@ -174,8 +193,11 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
   }
 
   Future<void> pauseDownload(String taskId) async {
-    await _pauseDownload(TaskIdParams(taskId: taskId));
-    _updateTaskStatus(taskId, DownloadStatus.paused);
+    final result = await _pauseDownload(TaskIdParams(taskId: taskId));
+    result.fold(
+      (f) => state = state.copyWith(errorMessage: f.message),
+      (_) => _updateTaskStatus(taskId, DownloadStatus.paused),
+    );
   }
 
   Future<void> resumeDownload(String taskId) async {
@@ -187,27 +209,36 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
   }
 
   Future<void> cancelDownload(String taskId) async {
-    await _cancelDownload(TaskIdParams(taskId: taskId));
-    final updated = state.tasks.where((t) => t.taskId != taskId).toList();
-    state = state.copyWith(tasks: updated);
+    final result = await _cancelDownload(TaskIdParams(taskId: taskId));
+    result.fold(
+      (f) => state = state.copyWith(errorMessage: f.message),
+      (_) => _updateTaskStatus(taskId, DownloadStatus.cancelled),
+    );
   }
 
   Future<void> retryDownload(String taskId) async {
-    await _retryDownload(TaskIdParams(taskId: taskId));
-    // Reload downloads after retry to get latest state.
-    await loadDownloads();
+    final result = await _retryDownload(TaskIdParams(taskId: taskId));
+    result.fold(
+      (f) => state = state.copyWith(errorMessage: f.message),
+      (_) => loadDownloads(),
+    );
   }
 
   Future<void> deleteDownload({
     required String taskId,
     required bool deleteFile,
   }) async {
-    await _deleteDownload(DeleteDownloadRecordParams(
+    final result = await _deleteDownload(DeleteDownloadRecordParams(
       taskId: taskId,
       deleteFile: deleteFile,
     ));
-    state = state.copyWith(
-      tasks: state.tasks.where((t) => t.taskId != taskId).toList(),
+    result.fold(
+      (f) => state = state.copyWith(errorMessage: f.message),
+      (_) {
+        state = state.copyWith(
+          tasks: state.tasks.where((t) => t.taskId != taskId).toList(),
+        );
+      },
     );
   }
 
@@ -236,7 +267,8 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
 
   @override
   void dispose() {
-    _instance = null;
+    IsolateNameServer.removePortNameMapping('downloader_send_port');
+    _port.close();
     super.dispose();
   }
 }

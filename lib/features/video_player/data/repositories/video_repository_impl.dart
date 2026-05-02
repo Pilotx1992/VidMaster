@@ -1,19 +1,95 @@
 import 'package:dartz/dartz.dart';
+import 'package:photo_manager/photo_manager.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/video_entity.dart';
 import '../../domain/repositories/video_repository.dart';
 import '../datasources/video_local_data_source.dart';
-
+import '../models/video_model.dart';
 
 /// Production implementation of [VideoRepository].
 ///
-/// Orchestrates data fetching from the [VideoLocalDataSource] (ObjectBox)
-/// and handles mapping to Domain Entities and exception catching.
+/// Uses [PhotoManager] (MediaStore API) to discover videos on the device,
+/// the same reliable mechanism that powers the Music library via `on_audio_query`.
 class VideoRepositoryImpl implements VideoRepository {
   final VideoLocalDataSource localDataSource;
 
   VideoRepositoryImpl({required this.localDataSource});
+
+  // ─── Library Sync ─────────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, void>> syncLibrary() async {
+    try {
+      // 1. Request storage permission via PhotoManager
+      final permissionState = await PhotoManager.requestPermissionExtend();
+      if (!permissionState.isAuth && permissionState != PermissionState.limited) {
+        return const Left(StoragePermissionFailure());
+      }
+
+      // 2. Query all video albums/folders from MediaStore
+      final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
+        type: RequestType.video,
+        hasAll: true,
+      );
+
+      // 3. Iterate through each album and save videos to local DB
+      for (final album in albums) {
+        final int assetCount = await album.assetCountAsync;
+        if (assetCount == 0) continue;
+
+        // Load assets in pages of 100 for memory efficiency
+        int page = 0;
+        const int pageSize = 100;
+
+        while (page * pageSize < assetCount) {
+          final List<AssetEntity> assets = await album.getAssetListPaged(
+            page: page,
+            size: pageSize,
+          );
+
+          for (final asset in assets) {
+            // Get the actual file
+            final file = await asset.file;
+            if (file == null) continue;
+
+            final path = file.path;
+
+            // Skip if already in DB
+            final existing = await localDataSource.getVideoByPath(path);
+            if (existing != null) continue;
+
+            // Extract folder name from path
+            final pathParts = path.split('/');
+            final folderName = pathParts.length >= 2
+                ? pathParts[pathParts.length - 2]
+                : 'Unknown';
+
+            final fileName = asset.title ?? pathParts.last;
+
+            final newVideo = VideoModel(
+              filePath: path,
+              fileName: fileName,
+              folderName: folderName,
+              fileSizeBytes: await file.length(),
+              durationMs: asset.duration * 1000, // asset.duration is in seconds
+              resolution: '${asset.width}x${asset.height}',
+            );
+
+            await localDataSource.saveVideo(newVideo);
+          }
+
+          page++;
+        }
+      }
+
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure('Failed to sync video library: ${e.toString()}'));
+    }
+  }
+
+  // ─── Library Queries ──────────────────────────────────────────────────
 
   @override
   Future<Either<Failure, List<VideoEntity>>> getAllVideos() async {

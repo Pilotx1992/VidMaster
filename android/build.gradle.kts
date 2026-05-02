@@ -15,6 +15,7 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+
 subprojects {
     afterEvaluate {
         if (hasProperty("android")) {
@@ -31,6 +32,15 @@ subprojects {
                 } catch (e: Exception) {
                     // Ignore
                 }
+
+                // Force Java 17 for all modules
+                try {
+                    val compileOptions = androidExt.javaClass.getMethod("getCompileOptions").invoke(androidExt)
+                    compileOptions.javaClass.getMethod("setSourceCompatibility", Object::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
+                    compileOptions.javaClass.getMethod("setTargetCompatibility", Object::class.java).invoke(compileOptions, JavaVersion.VERSION_17)
+                } catch (e: Exception) {
+                    // Ignore
+                }
             }
         }
     }
@@ -43,4 +53,3 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
-

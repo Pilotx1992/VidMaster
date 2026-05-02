@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/app_router.dart';
 import '../../domain/entities/download_task_entity.dart';
 import '../providers/downloader_provider.dart';
 
@@ -12,11 +13,65 @@ class DownloadsScreen extends ConsumerStatefulWidget {
 }
 
 class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
+  final Set<String> _selectedTasks = {};
+
+  bool get _isSelectionMode => _selectedTasks.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(downloaderProvider.notifier).loadDownloads();
+    });
+  }
+
+  void _toggleSelection(String taskId) {
+    setState(() {
+      if (_selectedTasks.contains(taskId)) {
+        _selectedTasks.remove(taskId);
+      } else {
+        _selectedTasks.add(taskId);
+      }
+    });
+  }
+
+  void _selectAll(List<DownloadTaskEntity> tasks) {
+    setState(() {
+      if (_selectedTasks.length == tasks.length) {
+        _selectedTasks.clear();
+      } else {
+        _selectedTasks.addAll(tasks.map((t) => t.taskId));
+      }
+    });
+  }
+
+  void _deleteSelected() {
+    final notifier = ref.read(downloaderProvider.notifier);
+    for (final taskId in _selectedTasks) {
+      notifier.deleteDownload(taskId: taskId, deleteFile: true);
+    }
+    setState(() {
+      _selectedTasks.clear();
+    });
+  }
+
+  void _pauseSelected() {
+    final notifier = ref.read(downloaderProvider.notifier);
+    for (final taskId in _selectedTasks) {
+      notifier.pauseDownload(taskId);
+    }
+    setState(() {
+      _selectedTasks.clear();
+    });
+  }
+
+  void _resumeSelected() {
+    final notifier = ref.read(downloaderProvider.notifier);
+    for (final taskId in _selectedTasks) {
+      notifier.resumeDownload(taskId);
+    }
+    setState(() {
+      _selectedTasks.clear();
     });
   }
 
@@ -71,24 +126,91 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<DownloaderState>(downloaderProvider, (previous, next) {
+      if (next.errorMessage != null && next.errorMessage != previous?.errorMessage) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.errorMessage!),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+          ref.read(downloaderProvider.notifier).clearError();
+        }
+      }
+    });
+
     final state = ref.watch(downloaderProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Downloads'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_link),
-            tooltip: 'Add Download',
-            onPressed: _showAddDownloadDialog,
-          ),
-        ],
-      ),
+      appBar: _isSelectionMode
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  setState(() {
+                    _selectedTasks.clear();
+                  });
+                },
+              ),
+              title: Text('${_selectedTasks.length} Selected'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.select_all),
+                  tooltip: 'Select All',
+                  onPressed: () => _selectAll(state.tasks),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.pause),
+                  tooltip: 'Pause Selected',
+                  onPressed: _pauseSelected,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.play_arrow),
+                  tooltip: 'Resume Selected',
+                  onPressed: _resumeSelected,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  tooltip: 'Delete Selected',
+                  onPressed: _deleteSelected,
+                ),
+              ],
+            )
+          : AppBar(
+              title: const Text('Downloads'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.checklist),
+                  tooltip: 'Select Multiple',
+                  onPressed: () {
+                    if (state.tasks.isNotEmpty) {
+                      setState(() {
+                        _selectedTasks.add(state.tasks.first.taskId);
+                      });
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_link),
+                  tooltip: 'Add Download',
+                  onPressed: _showAddDownloadDialog,
+                ),
+              ],
+            ),
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator())
           : state.tasks.isEmpty
               ? _buildEmptyState()
               : _buildList(state.tasks),
+      floatingActionButton: _isSelectionMode
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => context.push(AppRoutes.videoBrowser),
+              icon: const Icon(Icons.travel_explore),
+              label: const Text('Browser'),
+              tooltip: 'Open Video Browser',
+            ),
     );
   }
 
@@ -117,7 +239,23 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final task = tasks[index];
-        return _DownloadTaskTile(task: task);
+        final isSelected = _selectedTasks.contains(task.taskId);
+
+        return _DownloadTaskTile(
+          task: task,
+          isSelected: isSelected,
+          isSelectionMode: _isSelectionMode,
+          onTap: () {
+            if (_isSelectionMode) {
+              _toggleSelection(task.taskId);
+            }
+          },
+          onLongPress: () {
+            if (!_isSelectionMode) {
+              _toggleSelection(task.taskId);
+            }
+          },
+        );
       },
     );
   }
@@ -125,8 +263,18 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
 class _DownloadTaskTile extends ConsumerWidget {
   final DownloadTaskEntity task;
+  final bool isSelected;
+  final bool isSelectionMode;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
-  const _DownloadTaskTile({required this.task});
+  const _DownloadTaskTile({
+    required this.task,
+    required this.isSelected,
+    required this.isSelectionMode,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -170,10 +318,19 @@ class _DownloadTaskTile extends ConsumerWidget {
     }
 
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: getStatusColor().withValues(alpha: 0.1),
-        child: Icon(getStatusIcon(), color: getStatusColor()),
-      ),
+      selected: isSelected,
+      selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+      onTap: onTap,
+      onLongPress: onLongPress,
+      leading: isSelectionMode
+          ? Checkbox(
+              value: isSelected,
+              onChanged: (_) => onTap(),
+            )
+          : CircleAvatar(
+              backgroundColor: getStatusColor().withValues(alpha: 0.1),
+              child: Icon(getStatusIcon(), color: getStatusColor()),
+            ),
       title: Text(task.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,32 +356,78 @@ class _DownloadTaskTile extends ConsumerWidget {
             ),
         ],
       ),
-      trailing: _buildActions(notifier),
+      trailing: isSelectionMode ? null : _buildActions(notifier),
     );
   }
 
   Widget _buildActions(DownloaderNotifier notifier) {
-    if (task.status == DownloadStatus.running) {
-      return IconButton(
-        icon: const Icon(Icons.pause),
-        onPressed: () => notifier.pauseDownload(task.taskId),
-      );
-    } else if (task.status == DownloadStatus.paused) {
-      return IconButton(
-        icon: const Icon(Icons.play_arrow),
-        onPressed: () => notifier.resumeDownload(task.taskId),
-      );
-    } else if (task.status == DownloadStatus.failed || task.status == DownloadStatus.cancelled) {
-      return IconButton(
-        icon: const Icon(Icons.refresh),
-        onPressed: () => notifier.retryDownload(task.taskId),
-      );
-    } else if (task.status == DownloadStatus.completed) {
-      return IconButton(
-        icon: const Icon(Icons.delete_outline),
-        onPressed: () => notifier.cancelDownload(task.taskId), // Cancel also removes from list 
-      );
-    }
-    return const SizedBox.shrink();
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      onSelected: (value) {
+        switch (value) {
+          case 'pause':
+            notifier.pauseDownload(task.taskId);
+            break;
+          case 'resume':
+            notifier.resumeDownload(task.taskId);
+            break;
+          case 'retry':
+            notifier.retryDownload(task.taskId);
+            break;
+          case 'cancel':
+            notifier.cancelDownload(task.taskId);
+            break;
+          case 'delete':
+            notifier.deleteDownload(taskId: task.taskId, deleteFile: true);
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        if (task.status == DownloadStatus.running)
+          const PopupMenuItem(
+            value: 'pause',
+            child: ListTile(
+              leading: Icon(Icons.pause),
+              title: Text('Pause'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (task.status == DownloadStatus.paused)
+          const PopupMenuItem(
+            value: 'resume',
+            child: ListTile(
+              leading: Icon(Icons.play_arrow),
+              title: Text('Resume'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (task.status == DownloadStatus.failed || task.status == DownloadStatus.cancelled)
+          const PopupMenuItem(
+            value: 'retry',
+            child: ListTile(
+              leading: Icon(Icons.refresh),
+              title: Text('Retry'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (task.isActive)
+          const PopupMenuItem(
+            value: 'cancel',
+            child: ListTile(
+              leading: Icon(Icons.cancel),
+              title: Text('Cancel'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+            leading: Icon(Icons.delete_outline, color: Colors.red),
+            title: Text('Delete', style: TextStyle(color: Colors.red)),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+    );
   }
 }

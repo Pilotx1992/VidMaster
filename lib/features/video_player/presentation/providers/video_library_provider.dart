@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fpdart/fpdart.dart';
+import 'package:dartz/dartz.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../../../core/usecase/usecase.dart';
@@ -82,6 +82,7 @@ class VideoLibraryState {
 // ── Notifier ───────────────────────────────────────────────────────────────
 
 class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
+  final SyncVideoLibrary _syncVideoLibrary;
   final GetAllVideos _getAllVideos;
   final GetAllVideoFolders _getAllFolders;
   final GetRecentlyPlayed _getRecentlyPlayed;
@@ -92,6 +93,7 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
   final GenerateThumbnail _generateThumbnail;
 
   VideoLibraryNotifier({
+    required SyncVideoLibrary syncVideoLibrary,
     required GetAllVideos getAllVideos,
     required GetAllVideoFolders getAllFolders,
     required GetRecentlyPlayed getRecentlyPlayed,
@@ -100,7 +102,8 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
     required RecordVideoPlay markAsPlayed,
     required SavePlaybackPosition savePosition,
     required GenerateThumbnail generateThumbnail,
-  })  : _getAllVideos = getAllVideos,
+  })  : _syncVideoLibrary = syncVideoLibrary,
+        _getAllVideos = getAllVideos,
         _getAllFolders = getAllFolders,
         _getRecentlyPlayed = getRecentlyPlayed,
         _getFavorites = getFavorites,
@@ -110,8 +113,33 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
         _generateThumbnail = generateThumbnail,
         super(const VideoLibraryState());
 
-  Future<void> loadLibrary() async {
+  Future<void> loadLibrary({bool forceSync = false}) async {
     state = state.copyWith(status: VideoLibraryStatus.loading);
+
+    // Check if DB has data; if not, trigger a sync from device storage
+    bool shouldSync = forceSync;
+    if (!shouldSync) {
+      final initialVideos = await _getAllVideos(const NoParams());
+      final hasLocalData = initialVideos.fold((_) => false, (l) => l.isNotEmpty);
+      if (!hasLocalData) {
+        shouldSync = true;
+      }
+    }
+
+    if (shouldSync) {
+      final syncResult = await _syncVideoLibrary(const NoParams());
+      syncResult.fold(
+        (failure) {
+          state = state.copyWith(
+            status: VideoLibraryStatus.error,
+            errorMessage: failure.message,
+          );
+        },
+        (_) {},
+      );
+      // If sync errored with permission denial, stop here
+      if (state.status == VideoLibraryStatus.error) return;
+    }
 
     final results = await Future.wait([
       _getAllVideos(const NoParams()),
@@ -126,25 +154,25 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
     final favResult = results[3] as Either<Failure, List<VideoEntity>>;
 
     // Surface first error found (storage permission is most common).
-    final firstError = [videosResult, foldersResult, recentResult, favResult]
-        .whereType<Left<Failure, dynamic>>()
-        .map((l) => l.value)
-        .firstOrNull;
+    Failure? firstError;
+    for (final r in [videosResult, foldersResult, recentResult, favResult]) {
+      r.fold((l) => firstError ??= l, (_) {});
+    }
 
     if (firstError != null) {
       state = state.copyWith(
         status: VideoLibraryStatus.error,
-        errorMessage: firstError.message,
+        errorMessage: firstError!.message,
       );
       return;
     }
 
     state = state.copyWith(
       status: VideoLibraryStatus.loaded,
-      videos: videosResult.getOrElse((_) => []),
-      folders: foldersResult.getOrElse((_) => []),
-      recentlyPlayed: recentResult.getOrElse((_) => []),
-      favorites: favResult.getOrElse((_) => []),
+      videos: videosResult.fold((_) => [], (r) => r),
+      folders: foldersResult.fold((_) => [], (r) => r),
+      recentlyPlayed: recentResult.fold((_) => [], (r) => r),
+      favorites: favResult.fold((_) => [], (r) => r),
       errorMessage: null,
     );
   }
@@ -193,6 +221,7 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
 final videoLibraryProvider =
     StateNotifierProvider<VideoLibraryNotifier, VideoLibraryState>((ref) {
   return VideoLibraryNotifier(
+    syncVideoLibrary: ref.watch(syncVideoLibraryProvider),
     getAllVideos: ref.watch(getAllVideosProvider),
     getAllFolders: ref.watch(getAllFoldersProvider),
     getRecentlyPlayed: ref.watch(getRecentlyPlayedVideosProvider),

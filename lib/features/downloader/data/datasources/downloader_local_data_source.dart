@@ -69,10 +69,9 @@ class DownloaderLocalDataSource {
   /// Returns `true` if a record was actually deleted.
   bool deleteByTaskId(String taskId) {
     try {
-      final existing = getTaskByTaskId(taskId);
-      if (existing == null) return false;
       return _isar.writeTxnSync(() {
-        return _box.deleteSync(existing.id);
+        final count = _box.filter().taskIdEqualTo(taskId).deleteAllSync();
+        return count > 0;
       });
     } catch (e) {
       throw CacheException(message: 'Failed to delete task: $e');

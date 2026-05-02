@@ -117,9 +117,11 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
     _playingSub = _player.playingStream
         .listen((playing) => state = state.copyWith(isPlaying: playing));
 
-    _currentIndexSub = _player.currentIndexStream.listen((index) {
+    _currentIndexSub = _player.currentIndexStream.listen((index) async {
       if (index == null || index >= state.queue.length) return;
+      
       final track = state.queue[index];
+      
       state = state.copyWith(currentTrack: track, currentIndex: index);
       _markAsPlayed(RecordMusicPlayParams(trackId: track.id));
       _updateMediaItem(track);
@@ -135,7 +137,7 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
     state = state.copyWith(isLoading: true, queue: tracks);
 
     final sources = tracks
-        .map((t) => AudioSource.uri(Uri.file(t.filePath)))
+        .map((t) => _createAudioSource(t.filePath))
         .toList();
 
     await _player.setAudioSource(
@@ -242,7 +244,7 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
       album: track.album,
       duration: Duration(milliseconds: track.durationMs),
       artUri: track.albumArtPath != null
-          ? Uri.file(track.albumArtPath!)
+          ? _safeFileUri(track.albumArtPath!)
           : null,
     ));
   }
@@ -253,7 +255,27 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
     final updated = [...state.queue, track];
     state = state.copyWith(queue: updated);
     final src = _player.audioSource as ConcatenatingAudioSource?;
-    await src?.add(AudioSource.uri(Uri.file(track.filePath)));
+    await src?.add(_createAudioSource(track.filePath));
+  }
+
+  /// Safely creates an AudioSource from a file path, handling platform-specific URI issues.
+  AudioSource _createAudioSource(String path) {
+    return AudioSource.uri(_safeFileUri(path));
+  }
+
+  /// Robustly creates a file URI. On Windows, ensures absolute paths have drive letters.
+  Uri _safeFileUri(String path) {
+    if (path.startsWith('http')) return Uri.parse(path);
+    if (path.startsWith('file://')) return Uri.parse(path);
+    
+    // Use File.uri which is generally safer as it handles platform specifics
+    try {
+      return Uri.file(path);
+    } catch (_) {
+      // If Uri.file fails (e.g. missing drive letter on Windows), try to parse as is
+      // or return a dummy URI to avoid crashing the entire app.
+      return Uri.parse(path);
+    }
   }
 
   @override

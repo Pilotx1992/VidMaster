@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.vidmaster.app">
 
     <!-- ── Storage ──────────────────────────────────────────────────── -->
     <!-- Android ≤ 12 (API 32) -->
@@ -9,6 +10,7 @@
     <!-- Android 13+ (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <!-- ── Network & Downloads ──────────────────────────────────────── -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -75,21 +77,16 @@
             </intent-filter>
         </receiver>
 
-        <!-- flutter_downloader foreground service — dataSync type required on Android 14 -->
-        <service
-            android:name="vn.hunghd.flutterdownloader.DownloadTaskService"
-            android:foregroundServiceType="dataSync"
-            android:permission="android.permission.BIND_JOB_SERVICE"
-            android:exported="false" />
-
-        <!-- Boot receiver — resumes pending downloads after device restart -->
-        <receiver
-            android:name="vn.hunghd.flutterdownloader.DownloadStartOnBootReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
+        <!-- flutter_downloader (notification click → open file) -->
+        <provider
+            android:name="vn.hunghd.flutterdownloader.DownloadedFileProvider"
+            android:authorities="${applicationId}.flutter_downloader.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
 
         <meta-data
             android:name="flutterEmbedding"

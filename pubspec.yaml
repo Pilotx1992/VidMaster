@@ -72,6 +72,8 @@ dependencies:
   intl: ^0.20.2
   flutter_localizations:
     sdk: flutter
+  flutter_inappwebview: ^6.1.5
+  photo_manager: ^3.9.0
 
 dev_dependencies:
   flutter_test:

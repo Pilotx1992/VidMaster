@@ -21,7 +21,6 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     with WidgetsBindingObserver {
-
   static const _pip = MethodChannel('vidmaster/pip');
   static const _brightness = MethodChannel('vidmaster/brightness');
 
@@ -30,6 +29,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   bool _isDraggingSeek = false;
   Duration _seekPreview = Duration.zero;
   Duration _seekDragStart = Duration.zero; // موقع البداية عند أول لمسة
+
+  // Guard: prevents PiP from being triggered during the forced landscape
+  // rotation that happens in initState before the video is ready.
+  bool _isReady = false;
 
   @override
   void initState() {
@@ -44,6 +47,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
             widget.args.video,
             queue: widget.args.queue,
           );
+      // Mark as ready AFTER the rotation has settled to prevent spurious PiP.
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) setState(() => _isReady = true);
+      });
     });
   }
 
@@ -57,8 +64,13 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Auto-enter PiP when app is hidden (home button).
-    if (state == AppLifecycleState.inactive) {
+    // Enter PiP only when the app truly goes to the background (home button).
+    // We use `paused` (not `inactive`) because:
+    //   - `inactive` also fires during screen rotation, dialogs, etc.
+    //   - `paused` means the app is fully hidden from the user.
+    // The `_isReady` guard prevents PiP during the initial forced-landscape
+    // rotation triggered by initState.
+    if (state == AppLifecycleState.paused && _isReady) {
       _enterPip();
     }
   }
@@ -79,15 +91,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
   Future<void> _enterPip() async {
     try {
       await _pip.invokeMethod('enterPip');
-    } on PlatformException {
-      // PiP not supported on this device — silently ignore.
+    } catch (e) {
+      // PiP not supported on this device or missing plugin — silently ignore.
     }
   }
 
   Future<void> _setBrightness(double value) async {
     try {
       await _brightness.invokeMethod('setBrightness', {'value': value});
-    } on PlatformException {
+    } catch (e) {
       // Ignore on unsupported devices.
     }
   }
@@ -178,8 +190,7 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                 ),
 
               // ── Status indicators (volume / brightness) ───────────────
-              if (state.isControlsVisible)
-                _StatusIndicators(state: state),
+              if (state.isControlsVisible) _StatusIndicators(state: state),
             ],
           ),
         ),
@@ -193,7 +204,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
 class _VideoSurface extends StatelessWidget {
   final VideoController controller;
   final AspectRatioMode mode;
-  const _VideoSurface({required this.controller, this.mode = AspectRatioMode.fit});
+  const _VideoSurface(
+      {required this.controller, this.mode = AspectRatioMode.fit});
 
   @override
   Widget build(BuildContext context) {
@@ -209,6 +221,7 @@ class _VideoSurface extends StatelessWidget {
       controller: controller,
       fit: boxFit,
       fill: Colors.black,
+      controls: NoVideoControls,
     );
 
     // Wrap in AspectRatio for forced ratios
@@ -252,8 +265,7 @@ class _GestureOverlay extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onDoubleTap: onDoubleTapLeft,
-            onVerticalDragUpdate: (d) =>
-                onBrightnessChange(-d.delta.dy / 200),
+            onVerticalDragUpdate: (d) => onBrightnessChange(-d.delta.dy / 200),
             onHorizontalDragStart: (_) => onSeekStart(),
             onHorizontalDragUpdate: (d) =>
                 onSeek(Duration(milliseconds: (d.delta.dx * 300).toInt())),
@@ -265,8 +277,7 @@ class _GestureOverlay extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onDoubleTap: onDoubleTapRight,
-            onVerticalDragUpdate: (d) =>
-                onVolumeChange(-d.delta.dy / 200),
+            onVerticalDragUpdate: (d) => onVolumeChange(-d.delta.dy / 200),
             onHorizontalDragStart: (_) => onSeekStart(),
             onHorizontalDragUpdate: (d) =>
                 onSeek(Duration(milliseconds: (d.delta.dx * 300).toInt())),
@@ -352,7 +363,8 @@ class _TopBar extends StatelessWidget {
             ),
             // PiP
             IconButton(
-              icon: const Icon(Icons.picture_in_picture_alt, color: Colors.white),
+              icon:
+                  const Icon(Icons.picture_in_picture_alt, color: Colors.white),
               onPressed: () async {
                 try {
                   await const MethodChannel('vidmaster/pip')
@@ -368,7 +380,8 @@ class _TopBar extends StatelessWidget {
     );
   }
 
-  void _showSubtitlePicker(BuildContext context, VideoPlayerNotifier notifier) async {
+  void _showSubtitlePicker(
+      BuildContext context, VideoPlayerNotifier notifier) async {
     await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
@@ -388,11 +401,11 @@ class _TopBar extends StatelessWidget {
                 type: FileType.custom,
                 allowedExtensions: ['srt', 'ass', 'vtt', 'sub'],
               );
-              
+
               if (pickResult != null && pickResult.files.single.path != null) {
                 notifier.loadSubtitle(pickResult.files.single.path!);
               }
-              
+
               if (!context.mounted) return;
               Navigator.pop(context);
             },
@@ -434,7 +447,8 @@ class _AspectRatioButton extends StatelessWidget {
           children: [
             const Icon(Icons.aspect_ratio, color: Colors.white, size: 16),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
+            Text(label,
+                style: const TextStyle(color: Colors.white, fontSize: 11)),
           ],
         ),
       ),
@@ -465,9 +479,7 @@ class _SpeedButton extends StatelessWidget {
           style: const TextStyle(color: Colors.white, fontSize: 13),
         ),
       ),
-      itemBuilder: (_) => [
-        0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0
-      ]
+      itemBuilder: (_) => [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0]
           .map((s) => PopupMenuItem(
                 value: s,
                 child: Text('${s}x'),
@@ -579,21 +591,17 @@ class _BottomBar extends StatelessWidget {
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 3,
-                thumbShape:
-                    const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape:
-                    const RoundSliderOverlayShape(overlayRadius: 14),
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
                 activeTrackColor: const Color(0xFFF9A825),
                 inactiveTrackColor: Colors.white24,
                 thumbColor: const Color(0xFFF9A825),
               ),
               child: Slider(
                 value: state.progressFraction,
-                onChanged: (v) => notifier
-                    .seekTo(Duration(
-                      milliseconds:
-                          (v * state.duration.inMilliseconds).toInt(),
-                    )),
+                onChanged: (v) => notifier.seekTo(Duration(
+                  milliseconds: (v * state.duration.inMilliseconds).toInt(),
+                )),
               ),
             ),
             // Time row
@@ -602,8 +610,10 @@ class _BottomBar extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(_format(state.position), style: AppTextStyles.playerTime),
-                  Text(_format(state.duration), style: AppTextStyles.playerTime),
+                  Text(_format(state.position),
+                      style: AppTextStyles.playerTime),
+                  Text(_format(state.duration),
+                      style: AppTextStyles.playerTime),
                 ],
               ),
             ),
@@ -692,4 +702,3 @@ class VideoPlayerArgs {
     this.queue,
   });
 }
-

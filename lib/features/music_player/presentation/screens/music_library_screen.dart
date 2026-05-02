@@ -179,7 +179,7 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
             style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
           onTap: () {
-            ref.read(musicPlayerProvider.notifier).playQueue(tracks, initialIndex: index);
+            ref.read(musicPlayerProvider.notifier).playQueue(tracks, startIndex: index);
             context.push(AppRoutes.nowPlaying, extra: {
               'track': track,
               'queue': tracks,

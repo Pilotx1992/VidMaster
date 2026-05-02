@@ -23,6 +23,18 @@ final class GetAllVideos implements UseCase<List<VideoEntity>, NoParams> {
 
 // ─────────────────────────────────────────────────────────────────────────
 
+/// Scans device storage for video files and syncs them into the local DB.
+final class SyncVideoLibrary implements UseCase<void, NoParams> {
+  final VideoRepository _repository;
+  const SyncVideoLibrary(this._repository);
+
+  @override
+  Future<Either<Failure, void>> call(NoParams params) =>
+      _repository.syncLibrary();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+
 /// Fetches videos from a specific folder path.
 final class GetVideosByFolder
     implements UseCase<List<VideoEntity>, GetVideosByFolderParams> {

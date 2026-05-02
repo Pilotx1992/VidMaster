@@ -41,6 +41,12 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
             : const Text('Videos'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: 'Sync with Device',
+            onPressed: () =>
+                ref.read(videoLibraryProvider.notifier).loadLibrary(forceSync: true),
+          ),
+          IconButton(
             icon: Icon(state.isSearching ? Icons.close : Icons.search),
             onPressed: () {
               if (state.isSearching) {
@@ -67,7 +73,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(videoLibraryProvider.notifier).loadLibrary(),
+        onRefresh: () => ref.read(videoLibraryProvider.notifier).loadLibrary(forceSync: true),
         child: _buildBody(state),
       ),
     );

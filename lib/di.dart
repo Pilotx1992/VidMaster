@@ -185,6 +185,7 @@ final vaultRepositoryProvider = Provider<VaultRepository>(
 // ── Video Use Cases ────────────────────────────────────────────────────────
 
 final getAllVideosProvider = Provider((ref) => GetAllVideos(ref.watch(videoRepositoryProvider)));
+final syncVideoLibraryProvider = Provider((ref) => SyncVideoLibrary(ref.watch(videoRepositoryProvider)));
 final getVideosByFolderProvider = Provider((ref) => GetVideosByFolder(ref.watch(videoRepositoryProvider)));
 final getAllFoldersProvider = Provider((ref) => GetAllVideoFolders(ref.watch(videoRepositoryProvider)));
 final searchVideosProvider = Provider((ref) => SearchVideos(ref.watch(videoRepositoryProvider)));

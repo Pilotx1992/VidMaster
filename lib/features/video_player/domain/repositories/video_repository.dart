@@ -11,6 +11,17 @@ import '../entities/video_entity.dart';
 /// All methods return [Either<Failure, T>] so callers handle errors
 /// explicitly without try/catch blocks.
 abstract interface class VideoRepository {
+  // ─── Library Sync ────────────────────────────────────────────────────
+
+  /// Scans device storage for video files and syncs them into the local DB.
+  ///
+  /// Implementation notes:
+  ///   1. Request storage permissions (READ_MEDIA_VIDEO on 13+, READ_EXTERNAL_STORAGE on ≤12).
+  ///   2. Recursively scan common media directories for video files.
+  ///   3. Insert new entries into Isar; skip files that already exist.
+  ///   4. Return [StoragePermissionFailure] if permission is denied.
+  Future<Either<Failure, void>> syncLibrary();
+
   // ─── Library Queries ──────────────────────────────────────────────────
 
   /// Returns every video file found on device storage, excluding vault items.

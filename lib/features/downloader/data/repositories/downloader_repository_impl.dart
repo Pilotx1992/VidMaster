@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dartz/dartz.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/error/failures.dart';
@@ -61,9 +62,19 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
         await dir.create(recursive: true);
       }
 
-      // 3. Generate a unique task ID for the download engine.
-      final taskId =
-          'task_${DateTime.now().millisecondsSinceEpoch}_${url.hashCode.abs()}';
+      // 3. Enqueue the task with FlutterDownloader to actually download it.
+      final taskId = await FlutterDownloader.enqueue(
+        url: url,
+        savedDir: saveDirectory,
+        fileName: fileName,
+        showNotification: true,
+        openFileFromNotification: true,
+        requiresStorageNotLow: true,
+      );
+
+      if (taskId == null) {
+        return const Left(NetworkFailure('FlutterDownloader failed to enqueue the task.'));
+      }
 
       // 4. Create and persist the task model.
       final model = DownloadTaskModel(
@@ -92,22 +103,63 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
 
   @override
   Future<Either<Failure, void>> pauseDownload(String taskId) async {
-    return _updateTaskStatus(taskId, DownloadStatus.paused);
+    try {
+      await FlutterDownloader.pause(taskId: taskId);
+      return _updateTaskStatus(taskId, DownloadStatus.paused);
+    } catch (e) {
+      return Left(CacheFailure('Failed to pause download: $e'));
+    }
   }
 
   @override
   Future<Either<Failure, void>> resumeDownload(String taskId) async {
-    return _updateTaskStatus(taskId, DownloadStatus.running);
+    try {
+      final newTaskId = await FlutterDownloader.resume(taskId: taskId);
+      if (newTaskId != null && newTaskId != taskId) {
+        _handleTaskIdChange(oldId: taskId, newId: newTaskId);
+        return _updateTaskStatus(newTaskId, DownloadStatus.running);
+      }
+      return _updateTaskStatus(taskId, DownloadStatus.running);
+    } catch (e) {
+      return Left(CacheFailure('Failed to resume download: $e'));
+    }
   }
 
   @override
   Future<Either<Failure, void>> cancelDownload(String taskId) async {
-    return _updateTaskStatus(taskId, DownloadStatus.cancelled);
+    try {
+      try {
+        await FlutterDownloader.cancel(taskId: taskId);
+      } catch (e) {
+        // Ignore native error, still update local DB
+      }
+      return await _updateTaskStatus(taskId, DownloadStatus.cancelled);
+    } catch (e) {
+      return Left(CacheFailure('Failed to cancel download: $e'));
+    }
   }
 
   @override
   Future<Either<Failure, void>> retryDownload(String taskId) async {
-    return _updateTaskStatus(taskId, DownloadStatus.queued);
+    try {
+      final newTaskId = await FlutterDownloader.retry(taskId: taskId);
+      if (newTaskId != null && newTaskId != taskId) {
+        _handleTaskIdChange(oldId: taskId, newId: newTaskId);
+        return _updateTaskStatus(newTaskId, DownloadStatus.queued);
+      }
+      return _updateTaskStatus(taskId, DownloadStatus.queued);
+    } catch (e) {
+      return Left(CacheFailure('Failed to retry download: $e'));
+    }
+  }
+
+  void _handleTaskIdChange({required String oldId, required String newId}) {
+    final model = _localDataSource.getTaskByTaskId(oldId);
+    if (model != null) {
+      _localDataSource.deleteByTaskId(oldId);
+      model.taskId = newId;
+      _localDataSource.putTask(model);
+    }
   }
 
   /// Shared helper: find a task by [taskId], update its status, and persist.
@@ -194,17 +246,14 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
     bool deleteFile = false,
   }) async {
     try {
-      // Optionally delete the downloaded file from disk.
-      if (deleteFile) {
-        final model = _localDataSource.getTaskByTaskId(taskId);
-        if (model != null) {
-          final file = File('${model.saveDirectory}/${model.fileName}');
-          if (await file.exists()) {
-            await file.delete();
-          }
-        }
+      // Remove from flutter_downloader.
+      try {
+        await FlutterDownloader.remove(taskId: taskId, shouldDeleteContent: deleteFile);
+      } catch (e) {
+        // Ignore native error, ensure Isar is cleaned up
       }
 
+      // Also clean up local DB.
       _localDataSource.deleteByTaskId(taskId);
       return const Right(null);
     } on CacheException catch (e, st) {

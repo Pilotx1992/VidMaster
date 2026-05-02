@@ -1,93 +1,67 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:audio_service/audio_service.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
-import 'features/music_player/data/audio_handler.dart';
-import 'features/settings/presentation/providers/settings_provider.dart';
 import 'di.dart';
+import 'features/music_player/data/audio_handler.dart';
+import 'l10n/app_localizations.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── media_kit: must be called before any Player() is created ──────────────
+  // ⚠️ REQUIRED: Must be called before creating any Player instance.
+  // Without this, media_kit will crash with a fatal native error.
   MediaKit.ensureInitialized();
 
-  // ── audio_service: must be initialized before any AudioPlayer is created ───
-  // Creates a single AudioPlayer instance shared across the app lifetime.
-  // The Foreground Service (foregroundServiceType="mediaPlayback") is started
-  // automatically by audio_service when playback begins.
+  await FlutterDownloader.initialize(debug: true, ignoreSsl: true);
+
+  final isar = await initIsar();
+  final vaultBox = await initHive();
+  final sharedPreferences = await SharedPreferences.getInstance();
+
   final audioPlayer = AudioPlayer();
   final audioHandler = await AudioService.init(
     builder: () => VidMasterAudioHandler(audioPlayer),
     config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.vidmaster.audio',
-      androidNotificationChannelName: 'VidMaster Music',
-      androidNotificationChannelDescription: 'Music playback controls',
+      androidNotificationChannelId: 'com.vidmaster.app.audio',
+      androidNotificationChannelName: 'VidMaster Playback',
       androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
-      notificationColor: Color(0xFF1565C0),
     ),
   );
-
-  // ── flutter_downloader: initialize WorkManager + Foreground Service ────────
-  await FlutterDownloader.initialize(debug: true);
-
-  // ── Databases Initialization ──────────────────────────────────────────────
-  
-  // 1. Initialize Isar Database (Your actual local database)
-  final isar = await initIsar();
-
-  // 2. Initialize Hive (For the Encrypted Vault Metadata)
-  final vaultBox = await initHive();
-
-  // ── Persistence: SharedPreferences for app settings ──────────────────────
-  final sharedPrefs = await SharedPreferences.getInstance();
 
   runApp(
     ProviderScope(
       overrides: [
         isarProvider.overrideWithValue(isar),
         vaultBoxProvider.overrideWithValue(vaultBox),
-        audioHandlerProvider.overrideWithValue(audioHandler),
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         audioPlayerProvider.overrideWithValue(audioPlayer),
-        sharedPreferencesProvider.overrideWithValue(sharedPrefs),
+        audioHandlerProvider.overrideWithValue(audioHandler),
       ],
       child: const VidMasterApp(),
     ),
   );
 }
 
-class VidMasterApp extends ConsumerWidget {
+class VidMasterApp extends StatelessWidget {
   const VidMasterApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-
+  Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'VidMaster',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: settings.themeMode,
       routerConfig: AppRouter.router,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('en'), // English
-        Locale('ar'), // Arabic
-      ],
-      locale: Locale(settings.locale),
-      debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
     );
   }
 }
+

@@ -132,7 +132,9 @@ class MusicLibraryNotifier extends StateNotifier<MusicLibraryState> {
     final artistsResult = results[2] as Either<Failure, List<String>>;
     final playlistsResult = results[3] as Either<Failure, List<PlaylistEntity>>;
 
-    final firstError = [tracksResult, albumsResult, artistsResult, playlistsResult]
+    // Only check critical results for errors (playlists are not yet implemented,
+    // so we exclude them from the error check to avoid blocking the library).
+    final firstError = [tracksResult, albumsResult, artistsResult]
         .where((r) => r.isLeft())
         .map((r) => r.fold((l) => l, (r) => null))
         .firstOrNull;
