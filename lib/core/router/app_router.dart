@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vidmaster/core/widgets/main_shell.dart';
 import 'package:vidmaster/features/video_player/presentation/screens/video_library_screen.dart';
