@@ -1,19 +1,21 @@
+import 'dart:io';
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'di.dart';
 import 'features/music_player/data/audio_handler.dart';
-import 'l10n/app_localizations.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
-import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
+import 'features/settings/presentation/providers/settings_provider.dart';
 import 'features/video_player/presentation/widgets/mini_player_layer.dart';
-import 'dart:io';
+import 'l10n/app_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +24,11 @@ Future<void> main() async {
   // Without this, media_kit will crash with a fatal native error.
   MediaKit.ensureInitialized();
 
-  await FlutterDownloader.initialize(debug: true, ignoreSsl: true);
+  // Production security: disable ignoreSsl and use kDebugMode for debug flag
+  await FlutterDownloader.initialize(
+    debug: kDebugMode,
+    ignoreSsl: false,
+  );
 
   // Initialize Google Cast context
   const appId = 'CC1AD845';
@@ -76,15 +82,19 @@ Future<void> main() async {
   );
 }
 
-class VidMasterApp extends StatelessWidget {
+class VidMasterApp extends ConsumerWidget {
   const VidMasterApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
+      themeMode: settings.themeMode,
+      locale: Locale(settings.locale),
       routerConfig: AppRouter.router,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -99,4 +109,3 @@ class VidMasterApp extends StatelessWidget {
     );
   }
 }
-

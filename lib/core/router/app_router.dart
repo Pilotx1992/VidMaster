@@ -65,12 +65,19 @@ class AppRouter {
           GoRoute(
             path: '/now-playing',
             builder: (context, state) {
-              final args = state.extra as Map<String, dynamic>;
-              return NowPlayingScreen(
-                track: args['track'] as AudioTrackEntity,
-                queue: args['queue'] as List<AudioTrackEntity>,
-                queueIndex: args['queueIndex'] as int,
-              );
+              final extra = state.extra;
+              if (extra is Map<String, dynamic>) {
+                try {
+                  return NowPlayingScreen(
+                    track: extra['track'] as AudioTrackEntity,
+                    queue: extra['queue'] as List<AudioTrackEntity>,
+                    queueIndex: extra['queueIndex'] as int,
+                  );
+                } catch (e) {
+                  return const _ErrorScreen(message: 'Invalid arguments for Now Playing');
+                }
+              }
+              return const _ErrorScreen(message: 'Missing arguments for Now Playing');
             },
           ),
           GoRoute(
@@ -84,20 +91,49 @@ class AppRouter {
         name: 'video_player',
         builder: (context, state) {
           final extra = state.extra;
-          final VideoPlayerArgs args;
           if (extra is VideoPlayerArgs) {
-            args = extra;
+            return VideoPlayerScreen(args: extra);
           } else if (extra is Map) {
-            args = VideoPlayerArgs(
-              video: extra['video'] as VideoFile,
-              queue: extra['queue'] as List<VideoFile>?,
-            );
-          } else {
-            throw ArgumentError('Invalid args for /player route: $extra');
+            try {
+              final args = VideoPlayerArgs(
+                video: extra['video'] as VideoFile,
+                queue: extra['queue'] as List<VideoFile>?,
+              );
+              return VideoPlayerScreen(args: args);
+            } catch (e) {
+              return const _ErrorScreen(message: 'Invalid video player arguments');
+            }
           }
-          return VideoPlayerScreen(args: args);
+          return const _ErrorScreen(message: 'Missing video player arguments');
         },
       ),
     ],
   );
+}
+
+class _ErrorScreen extends StatelessWidget {
+  final String message;
+  const _ErrorScreen({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Error')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(message, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => context.go(AppRoutes.videos),
+              child: const Text('Back to Home'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

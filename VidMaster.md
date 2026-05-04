@@ -10,7 +10,7 @@
 | **Version** | 1.1 (MVP — Revised) |
 | **Platform** | Android 8.0+ (API 26+) |
 | **Framework** | Flutter 3.24.0+ / Dart 3.4+ |
-| **Architecture** | Clean Architecture + Riverpod 3.0 + Isar |
+| **Architecture** | Clean Architecture + Riverpod 2.5 + Isar |
 | **Document Status** | Revised v1.1 |
 | **Last Updated** | March 2025 (technical review pass) |
 | **Author** | Nagi – Flutter Developer |

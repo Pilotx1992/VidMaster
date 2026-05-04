@@ -85,7 +85,10 @@ class _MainShellState extends ConsumerState<MainShell> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.link, color: Colors.white),
+            Icon(
+              Icons.link,
+              color: Theme.of(context).colorScheme.onInverseSurface,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
