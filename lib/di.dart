@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Models
 import 'features/downloader/data/models/download_task_model.dart';
+import 'features/downloader/data/models/extraction_cache_model.dart';
 import 'features/music_player/data/models/audio_track_model.dart';
 import 'features/music_player/data/models/playlist_model.dart';
 import 'features/security/data/models/encrypted_file_metadata_model.dart';
@@ -29,13 +30,24 @@ import 'features/video_player/data/datasources/video_local_data_source.dart';
 
 // Repositories (implementations)
 import 'features/downloader/data/repositories/downloader_repository_impl.dart';
+import 'features/downloader/data/repositories/isar_download_repository.dart';
+import 'features/downloader/data/repositories/isar_extraction_cache_repository.dart';
 import 'features/music_player/data/repositories/music_repository_impl.dart';
 import 'features/security/data/repositories/auth_repository_impl.dart';
 import 'features/security/data/repositories/vault_repository_impl.dart';
 import 'features/video_player/data/repositories/video_repository_impl.dart';
 
 // Repositories (interfaces)
+import 'features/downloader/domain/repositories/download_repository.dart';
+import 'features/downloader/domain/repositories/extraction_cache_repository.dart';
 import 'features/downloader/domain/repositories/downloader_repository.dart';
+import 'features/downloader/domain/services/storage_service.dart';
+import 'features/downloader/data/services/ffmpeg_merge_service.dart';
+import 'features/downloader/domain/services/merge_service.dart';
+import 'features/downloader/application/use_cases/merge_streams_use_case.dart';
+import 'features/downloader/data/services/ytdlp_extraction_service.dart';
+import 'features/downloader/data/services/youtube_explode_service.dart';
+import 'features/downloader/data/services/storage_service_impl.dart';
 import 'features/music_player/domain/repositories/music_repository.dart';
 import 'features/security/domain/repositories/auth_repository.dart';
 import 'features/security/domain/repositories/vault_repository.dart';
@@ -44,6 +56,9 @@ import 'features/video_player/domain/repositories/video_repository.dart';
 // Use Cases
 import 'features/video_player/domain/usecases/video_usecases.dart';
 import 'features/music_player/domain/usecases/music_usecases.dart';
+import 'features/downloader/application/use_cases/extract_metadata_use_case.dart';
+import 'features/downloader/application/use_cases/start_download_use_case.dart';
+import 'features/downloader/application/services/cleanup_service.dart';
 import 'features/downloader/domain/usecases/download_usecases.dart';
 import 'features/security/domain/usecases/security_usecases.dart';
 
@@ -55,7 +70,7 @@ final isarProvider = Provider<Isar>((ref) => throw UnimplementedError(
 Future<Isar> initIsar() async {
   final dir = await getApplicationDocumentsDirectory();
   return Isar.open(
-    [VideoModelSchema, AudioTrackModelSchema, PlaylistModelSchema, DownloadTaskModelSchema],
+    [VideoModelSchema, AudioTrackModelSchema, PlaylistModelSchema, DownloadTaskModelSchema, ExtractionCacheModelSchema],
     directory: dir.path,
   );
 }
@@ -87,6 +102,11 @@ final audioPlayerProvider = Provider<AudioPlayer>(
 final sharedPreferencesProvider = Provider<SharedPreferences>(
   (ref) => throw UnimplementedError(
       'SharedPreferences must be initialized in main() before use.'),
+);
+
+final androidEqualizerProvider = Provider<AndroidEqualizer>(
+  (ref) => throw UnimplementedError(
+      'AndroidEqualizer must be initialized in main() before use.'),
 );
 
 // ── 3rd-Party Singletons ──────────────────────────────────────────────────
@@ -133,6 +153,48 @@ final downloaderRemoteDataSourceProvider = Provider<DownloaderRemoteDataSource>(
   (ref) => DownloaderRemoteDataSource(
     dio: ref.watch(dioProvider),
   ),
+);
+
+final downloadTaskRepositoryProvider = Provider<DownloadRepository>(
+  (ref) => IsarDownloadRepository(
+    localDataSource: ref.watch(downloaderLocalDataSourceProvider),
+  ),
+);
+
+final extractionCacheRepositoryProvider = Provider<ExtractionCacheRepository>(
+  (ref) => IsarExtractionCacheRepository(isar: ref.watch(isarProvider)),
+);
+
+final ytdlpExtractionServiceProvider = Provider((ref) => YtdlpExtractionService());
+final youtubeExplodeServiceProvider = Provider((ref) => YoutubeExplodeService());
+final storageServiceProvider = Provider<StorageService>((ref) => StorageServiceImpl());
+
+final extractMetadataUseCaseProvider = Provider(
+  (ref) => ExtractMetadataUseCase(
+    ytdlp: ref.watch(ytdlpExtractionServiceProvider),
+    ytExplode: ref.watch(youtubeExplodeServiceProvider),
+    cache: ref.watch(extractionCacheRepositoryProvider),
+  ),
+);
+
+final startDownloadUseCaseProvider = Provider(
+  (ref) => StartDownloadUseCase(
+    repo: ref.watch(downloadTaskRepositoryProvider),
+    storage: ref.watch(storageServiceProvider),
+  ),
+);
+
+final mergeStreamsUseCaseProvider = Provider(
+  (ref) => MergeStreamsUseCase(
+    merger: ref.watch(ffmpegMergeServiceProvider),
+    storage: ref.watch(storageServiceProvider),
+  ),
+);
+
+final ffmpegMergeServiceProvider = Provider<MergeService>((ref) => FfmpegMergeService());
+
+final cleanupServiceProvider = Provider<CleanupService>(
+  (ref) => CleanupService(ref.watch(storageServiceProvider)),
 );
 
 final vaultDataSourceProvider = Provider<VaultMetadataDataSource>(
@@ -224,6 +286,7 @@ final cancelDownloadProvider = Provider((ref) => CancelDownload(ref.watch(downlo
 final retryDownloadProvider = Provider((ref) => RetryDownload(ref.watch(downloaderRepositoryProvider)));
 final getAllDownloadsProvider = Provider((ref) => GetAllDownloads(ref.watch(downloaderRepositoryProvider)));
 final deleteDownloadProvider = Provider((ref) => DeleteDownloadRecord(ref.watch(downloaderRepositoryProvider)));
+final updateDownloadStatusProvider = Provider((ref) => UpdateDownloadStatus(ref.watch(downloaderRepositoryProvider)));
 
 // ── Security Use Cases ─────────────────────────────────────────────────────
 

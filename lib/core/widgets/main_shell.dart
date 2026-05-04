@@ -3,21 +3,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/music_player/presentation/widgets/mini_player_bar.dart';
+import '../../features/downloader/application/services/clipboard_monitor.dart';
+import '../../features/downloader/presentation/widgets/quality_selection_sheet.dart';
+import '../../di.dart';
 import '../router/app_router.dart';
 
-class MainShell extends ConsumerWidget {
+class MainShell extends ConsumerStatefulWidget {
   final Widget child;
   const MainShell({required this.child, super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  @override
+  void initState() {
+    super.initState();
+    // Start clipboard monitoring and storage cleanup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(clipboardMonitorProvider).start();
+      ref.read(cleanupServiceProvider).cleanTempFiles();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
+
+    // Listen for detected links from clipboard
+    ref.listen(detectedLinkProvider, (previous, next) {
+      if (next != null) {
+        _showLinkDetectedSnackBar(next);
+      }
+    });
 
     return Scaffold(
       body: Stack(
         children: [
-          child,
-          // Mini player sits above the bottom nav bar.
+          widget.child,
           const Positioned(
             left: 0,
             right: 0,
@@ -53,6 +77,68 @@ class MainShell extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _showLinkDetectedSnackBar(String url) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.link, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Link detected: ${url.substring(0, url.length.clamp(0, 30))}...',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 10),
+        action: SnackBarAction(
+          label: 'DOWNLOAD',
+          onPressed: () => _startDownloadFlow(url),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _startDownloadFlow(String url) async {
+    // Show a loading dialog while extracting
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final result = await ref.read(extractMetadataUseCaseProvider).call(url);
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+
+      result.fold(
+        (failure) => ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Extraction failed: ${failure.message}')),
+        ),
+        (extractionResult) {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => QualitySelectionSheet(result: extractionResult),
+          );
+        },
+      );
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+    }
+    
+    // Clear the detected link after action
+    ref.read(detectedLinkProvider.notifier).state = null;
   }
 
   int _indexFromLocation(String location) {

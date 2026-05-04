@@ -108,6 +108,10 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
   }
 
   void _subscribeToPlayer() {
+    _player.playingStream.listen((playing) {
+      // Music playback is handled by the dedicated music handler
+    });
+
     _positionSub =
         _player.positionStream.listen((p) => state = state.copyWith(position: p));
 

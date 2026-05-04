@@ -32,53 +32,58 @@ const DownloadTaskModelSchema = CollectionSchema(
       name: r'downloadedBytes',
       type: IsarType.long,
     ),
-    r'errorMessage': PropertySchema(
+    r'engineIndex': PropertySchema(
       id: 3,
+      name: r'engineIndex',
+      type: IsarType.long,
+    ),
+    r'errorMessage': PropertySchema(
+      id: 4,
       name: r'errorMessage',
       type: IsarType.string,
     ),
     r'fileName': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'fileName',
       type: IsarType.string,
     ),
     r'progressPercent': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'progressPercent',
       type: IsarType.long,
     ),
     r'saveDirectory': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'saveDirectory',
       type: IsarType.string,
     ),
     r'speedBytesPerSec': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'speedBytesPerSec',
       type: IsarType.long,
     ),
     r'statusIndex': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'statusIndex',
       type: IsarType.long,
     ),
     r'taskId': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'taskId',
       type: IsarType.string,
     ),
     r'totalBytes': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'totalBytes',
       type: IsarType.long,
     ),
     r'url': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'url',
       type: IsarType.string,
     ),
     r'wifiOnly': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'wifiOnly',
       type: IsarType.bool,
     )
@@ -139,16 +144,17 @@ void _downloadTaskModelSerialize(
   writer.writeDateTime(offsets[0], object.completedAt);
   writer.writeDateTime(offsets[1], object.createdAt);
   writer.writeLong(offsets[2], object.downloadedBytes);
-  writer.writeString(offsets[3], object.errorMessage);
-  writer.writeString(offsets[4], object.fileName);
-  writer.writeLong(offsets[5], object.progressPercent);
-  writer.writeString(offsets[6], object.saveDirectory);
-  writer.writeLong(offsets[7], object.speedBytesPerSec);
-  writer.writeLong(offsets[8], object.statusIndex);
-  writer.writeString(offsets[9], object.taskId);
-  writer.writeLong(offsets[10], object.totalBytes);
-  writer.writeString(offsets[11], object.url);
-  writer.writeBool(offsets[12], object.wifiOnly);
+  writer.writeLong(offsets[3], object.engineIndex);
+  writer.writeString(offsets[4], object.errorMessage);
+  writer.writeString(offsets[5], object.fileName);
+  writer.writeLong(offsets[6], object.progressPercent);
+  writer.writeString(offsets[7], object.saveDirectory);
+  writer.writeLong(offsets[8], object.speedBytesPerSec);
+  writer.writeLong(offsets[9], object.statusIndex);
+  writer.writeString(offsets[10], object.taskId);
+  writer.writeLong(offsets[11], object.totalBytes);
+  writer.writeString(offsets[12], object.url);
+  writer.writeBool(offsets[13], object.wifiOnly);
 }
 
 DownloadTaskModel _downloadTaskModelDeserialize(
@@ -161,16 +167,17 @@ DownloadTaskModel _downloadTaskModelDeserialize(
     completedAt: reader.readDateTimeOrNull(offsets[0]),
     createdAt: reader.readDateTime(offsets[1]),
     downloadedBytes: reader.readLongOrNull(offsets[2]) ?? 0,
-    errorMessage: reader.readStringOrNull(offsets[3]),
-    fileName: reader.readString(offsets[4]),
-    progressPercent: reader.readLongOrNull(offsets[5]) ?? 0,
-    saveDirectory: reader.readString(offsets[6]),
-    speedBytesPerSec: reader.readLongOrNull(offsets[7]),
-    statusIndex: reader.readLong(offsets[8]),
-    taskId: reader.readString(offsets[9]),
-    totalBytes: reader.readLongOrNull(offsets[10]),
-    url: reader.readString(offsets[11]),
-    wifiOnly: reader.readBoolOrNull(offsets[12]) ?? false,
+    engineIndex: reader.readLong(offsets[3]),
+    errorMessage: reader.readStringOrNull(offsets[4]),
+    fileName: reader.readString(offsets[5]),
+    progressPercent: reader.readLongOrNull(offsets[6]) ?? 0,
+    saveDirectory: reader.readString(offsets[7]),
+    speedBytesPerSec: reader.readLongOrNull(offsets[8]),
+    statusIndex: reader.readLong(offsets[9]),
+    taskId: reader.readString(offsets[10]),
+    totalBytes: reader.readLongOrNull(offsets[11]),
+    url: reader.readString(offsets[12]),
+    wifiOnly: reader.readBoolOrNull(offsets[13]) ?? false,
   );
   return object;
 }
@@ -189,24 +196,26 @@ P _downloadTaskModelDeserializeProp<P>(
     case 2:
       return (reader.readLongOrNull(offset) ?? 0) as P;
     case 3:
-      return (reader.readStringOrNull(offset)) as P;
-    case 4:
-      return (reader.readString(offset)) as P;
-    case 5:
-      return (reader.readLongOrNull(offset) ?? 0) as P;
-    case 6:
-      return (reader.readString(offset)) as P;
-    case 7:
-      return (reader.readLongOrNull(offset)) as P;
-    case 8:
       return (reader.readLong(offset)) as P;
-    case 9:
+    case 4:
+      return (reader.readStringOrNull(offset)) as P;
+    case 5:
       return (reader.readString(offset)) as P;
-    case 10:
+    case 6:
+      return (reader.readLongOrNull(offset) ?? 0) as P;
+    case 7:
+      return (reader.readString(offset)) as P;
+    case 8:
       return (reader.readLongOrNull(offset)) as P;
-    case 11:
+    case 9:
+      return (reader.readLong(offset)) as P;
+    case 10:
       return (reader.readString(offset)) as P;
+    case 11:
+      return (reader.readLongOrNull(offset)) as P;
     case 12:
+      return (reader.readString(offset)) as P;
+    case 13:
       return (reader.readBoolOrNull(offset) ?? false) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -585,6 +594,62 @@ extension DownloadTaskModelQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'downloadedBytes',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      engineIndexEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'engineIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      engineIndexGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'engineIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      engineIndexLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'engineIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      engineIndexBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'engineIndex',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -1669,6 +1734,20 @@ extension DownloadTaskModelQuerySortBy
   }
 
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      sortByEngineIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'engineIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      sortByEngineIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'engineIndex', Sort.desc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
       sortByErrorMessage() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'errorMessage', Sort.asc);
@@ -1853,6 +1932,20 @@ extension DownloadTaskModelQuerySortThenBy
   }
 
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      thenByEngineIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'engineIndex', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      thenByEngineIndexDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'engineIndex', Sort.desc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
       thenByErrorMessage() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'errorMessage', Sort.asc);
@@ -2029,6 +2122,13 @@ extension DownloadTaskModelQueryWhereDistinct
   }
 
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QDistinct>
+      distinctByEngineIndex() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'engineIndex');
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QDistinct>
       distinctByErrorMessage({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'errorMessage', caseSensitive: caseSensitive);
@@ -2126,6 +2226,12 @@ extension DownloadTaskModelQueryProperty
       downloadedBytesProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'downloadedBytes');
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, int, QQueryOperations> engineIndexProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'engineIndex');
     });
   }
 

@@ -233,10 +233,11 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   }
 
   Widget _buildList(List<DownloadTaskEntity> tasks) {
-    return ListView.separated(
+    return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: tasks.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      cacheExtent: 500,
+      physics: const AlwaysScrollableScrollPhysics(),
       itemBuilder: (context, index) {
         final task = tasks[index];
         final isSelected = _selectedTasks.contains(task.taskId);
@@ -294,6 +295,10 @@ class _DownloadTaskTile extends ConsumerWidget {
           return Icons.downloading;
         case DownloadStatus.queued:
           return Icons.access_time;
+        case DownloadStatus.extracting:
+          return Icons.search;
+        case DownloadStatus.merging:
+          return Icons.merge;
       }
     }
 
@@ -305,58 +310,170 @@ class _DownloadTaskTile extends ConsumerWidget {
           return Theme.of(context).colorScheme.error;
         case DownloadStatus.running:
           return Theme.of(context).colorScheme.primary;
+        case DownloadStatus.extracting:
+        case DownloadStatus.merging:
+          return Theme.of(context).colorScheme.secondary;
         default:
           return Theme.of(context).disabledColor;
       }
     }
 
-    // Convert bytes to MB string easily. 
+    // Convert bytes to readable string
     String formatBytes(int? bytes) {
       if (bytes == null || bytes == 0) return '0 B';
-      final mb = bytes / (1024 * 1024);
-      return '${mb.toStringAsFixed(1)} MB';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      int unitIndex = 0;
+      double size = bytes.toDouble();
+      while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+      }
+      return '${size.toStringAsFixed(1)} ${units[unitIndex]}';
     }
 
-    return ListTile(
-      selected: isSelected,
-      selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
-      onTap: onTap,
-      onLongPress: onLongPress,
-      leading: isSelectionMode
-          ? Checkbox(
-              value: isSelected,
-              onChanged: (_) => onTap(),
-            )
-          : CircleAvatar(
-              backgroundColor: getStatusColor().withValues(alpha: 0.1),
-              child: Icon(getStatusIcon(), color: getStatusColor()),
-            ),
-      title: Text(task.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 4),
-          if (task.isActive) ...[
-            LinearProgressIndicator(
-              value: task.progressPercent / 100,
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('${task.progressPercent}% - ${task.formattedSpeed}'),
-                Text('${formatBytes(task.downloadedBytes)} / ${formatBytes(task.totalBytes)}'),
+    String getETA() {
+      final eta = task.etaSeconds;
+      if (eta == null || eta <= 0) return '';
+      if (eta < 60) return '$eta s';
+      if (eta < 3600) return '${(eta / 60).floor()} m';
+      return '${(eta / 3600).floor()} h';
+    }
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Container(
+          decoration: isSelected
+              ? BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primaryContainer
+                      .withValues(alpha: 0.2),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 1,
+                  ),
+                )
+              : null,
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: getStatusColor().withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: isSelectionMode
+                        ? Checkbox(
+                            value: isSelected,
+                            onChanged: (_) => onTap(),
+                          )
+                        : Icon(getStatusIcon(), color: getStatusColor()),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          task.fileName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Text(
+                              task.status.name.toUpperCase(),
+                              style: TextStyle(
+                                color: getStatusColor(),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${formatBytes(task.downloadedBytes)} / ${formatBytes(task.totalBytes)}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isSelectionMode) _buildActions(notifier),
+                ],
+              ),
+              if (task.isActive || task.status == DownloadStatus.paused) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: task.progressPercent / 100,
+                    minHeight: 6,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                    valueColor: AlwaysStoppedAnimation<Color>(getStatusColor()),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.speed, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          task.formattedSpeed,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                    if (task.status == DownloadStatus.running)
+                      Row(
+                        children: [
+                          const Icon(Icons.timer_outlined, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            getETA(),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    Text(
+                      '${task.progressPercent}%',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: getStatusColor(),
+                          ),
+                    ),
+                  ],
+                ),
               ],
-            ),
-          ] else
-            Text(
-              task.status.name.toUpperCase(),
-              style: TextStyle(color: getStatusColor(), fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
-      trailing: isSelectionMode ? null : _buildActions(notifier),
     );
   }
 

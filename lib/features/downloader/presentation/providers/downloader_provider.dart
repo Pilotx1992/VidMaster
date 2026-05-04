@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,6 +11,7 @@ import '../../../../di.dart';
 import '../../domain/entities/download_task_entity.dart';
 import '../../domain/entities/download_url_info.dart';
 import '../../domain/usecases/download_usecases.dart';
+import '../../application/use_cases/merge_streams_use_case.dart';
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -68,6 +70,7 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
   final RetryDownload _retryDownload;
   final GetAllDownloads _getAllDownloads;
   final DeleteDownloadRecord _deleteDownload;
+  final MergeStreamsUseCase _mergeStreams;
 
   // flutter_downloader communicates via a background isolate.
   // We use IsolateNameServer and ReceivePort to route updates to the UI thread.
@@ -82,6 +85,7 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
     required RetryDownload retryDownload,
     required GetAllDownloads getAllDownloads,
     required DeleteDownloadRecord deleteDownload,
+    required MergeStreamsUseCase mergeStreams,
   })  : _probeUrl = probeUrl,
         _startDownload = startDownload,
         _pauseDownload = pauseDownload,
@@ -90,6 +94,7 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
         _retryDownload = retryDownload,
         _getAllDownloads = getAllDownloads,
         _deleteDownload = deleteDownload,
+        _mergeStreams = mergeStreams,
         super(const DownloaderState()) {
     _initDownloaderCommunication();
     loadDownloads();
@@ -125,16 +130,87 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
     if (!mounted) return;
 
     final dlStatus = _mapStatus(statusCode);
+    
+    // 1. Identify which logical task this update belongs to
+    DownloadTaskEntity? targetTask;
+    for (final t in state.tasks) {
+      if (t.taskId == taskId || t.videoTaskId == taskId || t.audioTaskId == taskId) {
+        targetTask = t;
+        break;
+      }
+    }
+
+    if (targetTask == null) return;
+
+    // 2. Update status and progress
     final updated = state.tasks.map((t) {
-      if (t.taskId != taskId) return t;
+      if (t.taskId != targetTask!.taskId) return t;
+      
+      // For DASH, calculate aggregate progress
+      // (Simplification: just use the lowest progress of the two streams)
+      int finalProgress = progress;
+      if (t.videoTaskId != null && t.audioTaskId != null) {
+        // If we only have update for one, we might not know the other's current progress
+        // so we just update the logical task progress.
+        // A better way would be to query native tasks for both.
+      }
+
       return t.copyWith(
-        status: dlStatus,
-        progressPercent: progress,
+        status: dlStatus == DownloadStatus.completed && t.engine == DownloadEngineType.ffmpeg
+            ? DownloadStatus.running // Keep 'running' until merge is triggered
+            : dlStatus,
+        progressPercent: finalProgress,
         completedAt: dlStatus == DownloadStatus.completed ? DateTime.now() : null,
       );
     }).toList();
 
     state = state.copyWith(tasks: updated);
+
+    // 3. Trigger DASH merge if both streams are done
+    if (dlStatus == DownloadStatus.completed && targetTask.engine == DownloadEngineType.ffmpeg) {
+      _checkAndTriggerMerge(targetTask.taskId);
+    }
+  }
+
+  Future<void> _checkAndTriggerMerge(String logicalId) async {
+    // We need to fetch the latest native statuses for both sub-tasks
+    final nativeTasks = await FlutterDownloader.loadTasks();
+    if (nativeTasks == null) return;
+
+    final task = state.tasks.firstWhere((t) => t.taskId == logicalId);
+    if (task.videoTaskId == null || task.audioTaskId == null) return;
+
+    final videoNative = nativeTasks.firstWhere((n) => n.taskId == task.videoTaskId);
+    final audioNative = nativeTasks.firstWhere((n) => n.taskId == task.audioTaskId);
+
+    if (videoNative.status == DownloadTaskStatus.complete && 
+        audioNative.status == DownloadTaskStatus.complete) {
+      
+      // Update status to merging
+      _updateTaskStatus(logicalId, DownloadStatus.merging);
+
+      try {
+        final ext = task.fileName.split('.').last;
+        final title = task.fileName.replaceAll('.$ext', '');
+        
+        await _mergeStreams(
+          videoTempPath: '${videoNative.savedDir}/${videoNative.filename}',
+          audioTempPath: '${audioNative.savedDir}/${audioNative.filename}',
+          title: title,
+          extension: ext,
+        );
+
+        _updateTaskStatus(logicalId, DownloadStatus.completed);
+        
+        // Final cleanup of native tasks from flutter_downloader
+        await FlutterDownloader.remove(taskId: task.videoTaskId!, shouldDeleteContent: false);
+        await FlutterDownloader.remove(taskId: task.audioTaskId!, shouldDeleteContent: false);
+
+      } catch (e) {
+        debugPrint('[Orchestrator] Merge failed: $e');
+        _updateTaskStatus(logicalId, DownloadStatus.failed);
+      }
+    }
   }
 
   // ── Public Actions ────────────────────────────────────────────────────────
@@ -284,5 +360,6 @@ final downloaderProvider =
     retryDownload: ref.watch(retryDownloadProvider),
     getAllDownloads: ref.watch(getAllDownloadsProvider),
     deleteDownload: ref.watch(deleteDownloadProvider),
+    mergeStreams: ref.watch(mergeStreamsUseCaseProvider),
   );
 });

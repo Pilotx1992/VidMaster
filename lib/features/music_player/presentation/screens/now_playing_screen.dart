@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/app_router.dart';
 
 import 'dart:ui';
+import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import '../../domain/entities/audio_track_entity.dart';
 import '../providers/music_player_provider.dart';
@@ -52,6 +55,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          const _CastButton(),
           IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: () {},
@@ -362,14 +366,9 @@ class _ExtraControls extends ConsumerWidget {
           onPressed: () => _showSleepTimerSheet(context),
         ),
 
-        // Equalizer placeholder
         IconButton(
-          icon: const Icon(Icons.equalizer, color: Colors.white54),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Equalizer coming soon')),
-            );
-          },
+          icon: const Icon(Icons.equalizer, color: Colors.white),
+          onPressed: () => context.push(AppRoutes.equalizer),
         ),
 
         // Queue
@@ -507,5 +506,160 @@ class _ExtraControls extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+// ── Chromecast Support ─────────────────────────────────────────────────────
+
+class _CastButton extends StatelessWidget {
+  const _CastButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<GoogleCastSession?>(
+      stream: GoogleCastSessionManager.instance.currentSessionStream,
+      builder: (context, snapshot) {
+        final isConnected = GoogleCastSessionManager.instance.connectionState ==
+            GoogleCastConnectState.connected;
+
+        return IconButton(
+          icon: Icon(
+            isConnected ? Icons.cast_connected : Icons.cast,
+            color: isConnected ? const Color(0xFFF9A825) : Colors.white,
+          ),
+          onPressed: () => _showCastDialog(context),
+        );
+      },
+    );
+  }
+
+  void _showCastDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2B3A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => const _CastDevicePicker(),
+    );
+  }
+}
+
+class _CastDevicePicker extends ConsumerWidget {
+  const _CastDevicePicker();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Cast to Device',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (GoogleCastSessionManager.instance.connectionState ==
+                  GoogleCastConnectState.connected)
+                TextButton(
+                  onPressed: () {
+                    GoogleCastSessionManager.instance
+                        .endSessionAndStopCasting();
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Disconnect',
+                      style: TextStyle(color: Colors.redAccent)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          StreamBuilder<List<GoogleCastDevice>>(
+            stream: GoogleCastDiscoveryManager.instance.devicesStream,
+            builder: (context, snapshot) {
+              final devices = snapshot.data ?? [];
+              if (devices.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(color: Color(0xFFF9A825)),
+                      SizedBox(height: 16),
+                      Text('Searching for devices...',
+                          style: TextStyle(color: Colors.white54)),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: devices.length,
+                itemBuilder: (context, index) {
+                  final device = devices[index];
+                  return ListTile(
+                    leading: const Icon(Icons.cast, color: Colors.white70),
+                    title: Text(device.friendlyName,
+                        style: const TextStyle(color: Colors.white)),
+                    subtitle: Text(device.modelName ?? 'Cast Device',
+                        style: const TextStyle(color: Colors.white54)),
+                    onTap: () => _handleCast(context, ref, device),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleCast(
+      BuildContext context, WidgetRef ref, GoogleCastDevice device) async {
+    try {
+      await GoogleCastSessionManager.instance.startSessionWithDevice(device);
+
+      final playerState = ref.read(musicPlayerProvider);
+      final track = playerState.currentTrack;
+
+      if (track != null) {
+        final mediaInfo = GoogleCastMediaInformation(
+          contentId: track.filePath,
+          streamType: CastMediaStreamType.buffered,
+          contentUrl: Uri.parse(track.filePath),
+          contentType: 'audio/mpeg',
+          metadata: GoogleCastMusicMediaMetadata(
+            title: track.title,
+            artist: track.artist,
+            albumName: track.album,
+            images: [
+              if (track.albumArtPath != null)
+                GoogleCastImage(
+                  url: Uri.parse(track.albumArtPath!),
+                ),
+            ],
+          ),
+        );
+
+        await GoogleCastRemoteMediaClient.instance.loadMedia(
+          mediaInfo,
+          autoPlay: true,
+        );
+      }
+
+      if (context.mounted) Navigator.pop(context);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to cast: $e')),
+        );
+      }
+    }
   }
 }

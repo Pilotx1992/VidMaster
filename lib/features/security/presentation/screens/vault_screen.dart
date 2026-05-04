@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import 'package:intl/intl.dart';
 
 import '../../domain/entities/encrypted_file_metadata.dart';
@@ -15,6 +16,22 @@ class VaultScreen extends ConsumerStatefulWidget {
 }
 
 class _VaultScreenState extends ConsumerState<VaultScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _secureScreen();
+  }
+
+  Future<void> _secureScreen() async {
+    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+  }
+
+  @override
+  void dispose() {
+    FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(vaultProvider);

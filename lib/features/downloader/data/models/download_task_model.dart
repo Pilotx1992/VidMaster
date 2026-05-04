@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 
 import '../../domain/entities/download_task_entity.dart';
+import '../../domain/entities/download_url_info.dart';
 
 part 'download_task_model.g.dart';
 
@@ -17,6 +18,7 @@ class DownloadTaskModel {
   String saveDirectory;
 
   int statusIndex;
+  int engineIndex;
   int progressPercent;
   int? totalBytes;
   int downloadedBytes;
@@ -32,6 +34,7 @@ class DownloadTaskModel {
     required this.fileName,
     required this.saveDirectory,
     required this.statusIndex,
+    required this.engineIndex,
     required this.createdAt,
     this.progressPercent = 0,
     this.totalBytes,
@@ -52,6 +55,9 @@ class DownloadTaskModel {
           ? DownloadStatus.values[statusIndex]
           : DownloadStatus.failed,
       createdAt: createdAt,
+      engine: (engineIndex >= 0 && engineIndex < DownloadEngineType.values.length)
+          ? DownloadEngineType.values[engineIndex]
+          : DownloadEngineType.native,
       progressPercent: progressPercent,
       totalBytes: totalBytes,
       downloadedBytes: downloadedBytes,
@@ -69,6 +75,7 @@ class DownloadTaskModel {
       fileName: entity.fileName,
       saveDirectory: entity.saveDirectory,
       statusIndex: entity.status.index,
+      engineIndex: entity.engine.index,
       createdAt: entity.createdAt,
       progressPercent: entity.progressPercent,
       totalBytes: entity.totalBytes,

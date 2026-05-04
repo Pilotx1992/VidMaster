@@ -19,6 +19,7 @@ abstract interface class DownloaderRepository {
     required String url,
     required String fileName,
     required String saveDirectory,
+    DownloadEngineType? engine,
     bool wifiOnly = false,
   });
 
@@ -26,6 +27,8 @@ abstract interface class DownloaderRepository {
   Future<Either<Failure, void>> resumeDownload(String taskId);
   Future<Either<Failure, void>> cancelDownload(String taskId);
   Future<Either<Failure, void>> retryDownload(String taskId);
+  Future<Either<Failure, void>> updateDownloadStatus(
+      String taskId, DownloadStatus status);
 
   // ─── Queries ───────────────────────────────────────────────────────────
 

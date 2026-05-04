@@ -8,10 +8,11 @@ import 'package:vidmaster/features/settings/presentation/screens/settings_screen
 import 'package:vidmaster/features/security/presentation/screens/lock_screen.dart';
 import 'package:vidmaster/features/security/presentation/screens/vault_screen.dart';
 import 'package:vidmaster/features/music_player/presentation/screens/now_playing_screen.dart';
+import 'package:vidmaster/features/music_player/presentation/screens/equalizer_screen.dart';
 import 'package:vidmaster/features/video_player/presentation/screens/video_player_screen.dart';
 
 import 'package:vidmaster/features/music_player/domain/entities/audio_track_entity.dart';
-import 'package:vidmaster/features/video_player/domain/entities/video_entity.dart';
+import 'package:vidmaster/features/video_player/domain/entities/video_file.dart';
 
 class AppRoutes {
   static const videos = '/videos';
@@ -23,6 +24,7 @@ class AppRoutes {
   static const vault = '/vault';
   static const nowPlaying = '/now-playing';
   static const player = '/player';
+  static const equalizer = '/equalizer';
 }
 
 class AppRouter {
@@ -72,24 +74,29 @@ class AppRouter {
             },
           ),
           GoRoute(
-            path: '/player',
-            builder: (context, state) {
-              final extra = state.extra;
-              final VideoPlayerArgs args;
-              if (extra is VideoPlayerArgs) {
-                args = extra;
-              } else if (extra is Map) {
-                args = VideoPlayerArgs(
-                  video: extra['video'] as VideoEntity,
-                  queue: extra['queue'] as List<VideoEntity>?,
-                );
-              } else {
-                throw ArgumentError('Invalid args for /player route: $extra');
-              }
-              return VideoPlayerScreen(args: args);
-            },
+            path: '/equalizer',
+            builder: (context, state) => const EqualizerScreen(),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/player',
+        name: 'video_player',
+        builder: (context, state) {
+          final extra = state.extra;
+          final VideoPlayerArgs args;
+          if (extra is VideoPlayerArgs) {
+            args = extra;
+          } else if (extra is Map) {
+            args = VideoPlayerArgs(
+              video: extra['video'] as VideoFile,
+              queue: extra['queue'] as List<VideoFile>?,
+            );
+          } else {
+            throw ArgumentError('Invalid args for /player route: $extra');
+          }
+          return VideoPlayerScreen(args: args);
+        },
       ),
     ],
   );

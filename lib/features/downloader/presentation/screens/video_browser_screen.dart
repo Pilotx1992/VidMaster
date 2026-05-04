@@ -3,9 +3,10 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/downloader_provider.dart';
+import '../widgets/quality_selection_sheet.dart';
+import '../../core/link_parser.dart';
+import '../../../../di.dart';
 
-/// A Universal Video Downloader Screen that uses a hybrid network-sniffing approach.
-/// It loads web pages and intercepts network requests to find media files.
 class VideoBrowserScreen extends ConsumerStatefulWidget {
   const VideoBrowserScreen({super.key});
 
@@ -18,15 +19,14 @@ class _VideoBrowserScreenState extends ConsumerState<VideoBrowserScreen> {
   InAppWebViewController? webViewController;
   final TextEditingController _urlController = TextEditingController();
 
-  // Desktop Chrome User-Agent spoofing
-  // Spoofing the User-Agent as a desktop browser forces websites to serve 
-  // high-quality videos (often MP4) instead of mobile-optimized streaming formats.
   final String desktopUserAgent =
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
   String url = "https://www.google.com/";
   List<String> detectedVideoUrls = [];
-  bool isVideoDetected = false;
+  bool isMagicExtractable = false;
+  bool isSniffedDetected = false;
+  bool isExtracting = false;
 
   late InAppWebViewSettings settings;
 
@@ -35,167 +35,185 @@ class _VideoBrowserScreenState extends ConsumerState<VideoBrowserScreen> {
     super.initState();
     _urlController.text = url;
     
-    // Configure WebView settings for network sniffing and desktop spoofing
     settings = InAppWebViewSettings(
-      useShouldInterceptRequest: true, // Crucial for sniffing network requests
-      useOnLoadResource: true,         // Crucial for sniffing loaded resources
-      userAgent: desktopUserAgent,     // Apply Desktop Spoofing
+      useShouldInterceptRequest: true,
+      useOnLoadResource: true,
+      userAgent: desktopUserAgent,
       javaScriptEnabled: true,
       mediaPlaybackRequiresUserGesture: false,
       transparentBackground: true,
+      allowsInlineMediaPlayback: true,
     );
   }
 
-  /// Handles user URL submission from the AppBar
   void _onUrlSubmit(String searchUrl) {
     var validUrl = searchUrl;
-    if (!validUrl.startsWith("http://") && !validUrl.startsWith("https://")) {
+    if (!validUrl.contains('.') && !validUrl.startsWith('http')) {
+      validUrl = "https://www.google.com/search?q=$searchUrl";
+    } else if (!validUrl.startsWith("http://") && !validUrl.startsWith("https://")) {
       validUrl = "https://$validUrl";
     }
     webViewController?.loadUrl(
         urlRequest: URLRequest(url: WebUri(validUrl)));
   }
 
-  /// The Core Sniffing Logic: Checks if a resource URL points to a video.
   void _checkAndAddVideoUrl(String? resourceUrl, String? mimeType) {
     if (resourceUrl == null) return;
     
     final lowerUrl = resourceUrl.toLowerCase();
     bool isVideo = false;
     
-    // Filtering logic to detect videos
-    // 1. Direct files (.mp4, .webm)
-    // 2. HLS Playlists (.m3u8)
     if (lowerUrl.contains('.mp4') || 
         lowerUrl.contains('.m3u8') || 
         lowerUrl.contains('.webm')) {
       isVideo = true;
     } 
-    // 3. MIME type checking (video/mp4, video/webm, etc.)
     else if (mimeType != null && mimeType.toLowerCase().contains('video/')) {
       isVideo = true;
     }
 
-    // Add unique videos and update the UI
     if (isVideo && !detectedVideoUrls.contains(resourceUrl)) {
       if (!mounted) return;
       setState(() {
         detectedVideoUrls.add(resourceUrl);
-        isVideoDetected = true;
+        isSniffedDetected = true;
       });
     }
   }
 
-  /// Displays a BottomSheet with all detected video links
-  void _showDownloadBottomSheet() {
+  Future<void> _onDownloadPressed() async {
+    if (isMagicExtractable) {
+      _startMagicExtraction();
+    } else {
+      _showSniffedBottomSheet();
+    }
+  }
+
+  Future<void> _startMagicExtraction() async {
+    setState(() => isExtracting = true);
+    try {
+      final currentUrl = _urlController.text;
+      
+      // We manually trigger the extraction flow
+      final result = await ref.read(extractMetadataUseCaseProvider).call(currentUrl);
+      
+      if (!mounted) return;
+      setState(() => isExtracting = false);
+
+      result.fold(
+        (failure) => ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Extraction failed: ${failure.message}')),
+        ),
+        (extractionResult) {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => QualitySelectionSheet(result: extractionResult),
+          );
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => isExtracting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _showSniffedBottomSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.7,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Text(
+                'Sniffed Video Resources',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'Detected Videos',
-                    style: TextStyle(
-                      fontSize: 18, 
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                Divider(color: Theme.of(context).colorScheme.outlineVariant),
-                if (detectedVideoUrls.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Text(
-                      'No videos detected yet.',
-                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                    ),
-                  )
-                else
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: detectedVideoUrls.length,
-                      itemBuilder: (context, index) {
-                        final detectedUrl = detectedVideoUrls[index];
-                        return ListTile(
-                          leading: Icon(
-                            Icons.video_file, 
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          title: Text(
-                            detectedUrl,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                          ),
-                          trailing: ElevatedButton.icon(
-                            icon: const Icon(Icons.download),
-                            label: const Text('Download'),
-                            onPressed: () {
-                              // Extract a simple filename or use a timestamp
-                              final fileName = "video_${DateTime.now().millisecondsSinceEpoch}.mp4";
-                              
-                              // Trigger the Riverpod provider's download method
-                              ref.read(downloaderProvider.notifier).startDownload(
-                                    url: detectedUrl,
-                                    fileName: fileName,
-                                  );
-                              
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Download started!')),
+            const Divider(),
+            if (detectedVideoUrls.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(40.0),
+                child: Text('No direct video links found.'),
+              )
+            else
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: detectedVideoUrls.length,
+                  itemBuilder: (context, index) {
+                    final detectedUrl = detectedVideoUrls[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                        child: Icon(Icons.link, color: Theme.of(context).colorScheme.primary),
+                      ),
+                      title: Text(detectedUrl, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: const Text('Direct Media Link'),
+                      trailing: IconButton.filledTonal(
+                        icon: const Icon(Icons.download),
+                        onPressed: () {
+                          final fileName = "sniffed_${DateTime.now().millisecondsSinceEpoch}.mp4";
+                          ref.read(downloaderProvider.notifier).startDownload(
+                                url: detectedUrl,
+                                fileName: fileName,
                               );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+                          Navigator.pop(context);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final showFab = isMagicExtractable || isSniffedDetected;
+
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: _urlController,
-          decoration: InputDecoration(
-            hintText: 'Enter URL or Search',
-            border: InputBorder.none,
-            hintStyle: TextStyle(
-              color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
-            ),
+        titleSpacing: 0,
+        title: Container(
+          height: 40,
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(20),
           ),
-          style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-          keyboardType: TextInputType.url,
-          onSubmitted: _onUrlSubmit,
+          child: TextField(
+            controller: _urlController,
+            decoration: const InputDecoration(
+              hintText: 'Search or enter URL',
+              prefixIcon: Icon(Icons.search, size: 20),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 10),
+            ),
+            style: const TextStyle(fontSize: 14),
+            keyboardType: TextInputType.url,
+            onSubmitted: _onUrlSubmit,
+          ),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              webViewController?.reload();
-            },
+            onPressed: () => webViewController?.reload(),
           ),
         ],
       ),
@@ -205,44 +223,50 @@ class _VideoBrowserScreenState extends ConsumerState<VideoBrowserScreen> {
             key: webViewKey,
             initialUrlRequest: URLRequest(url: WebUri(url)),
             initialSettings: settings,
-            onWebViewCreated: (controller) {
-              webViewController = controller;
-            },
+            onWebViewCreated: (controller) => webViewController = controller,
             onLoadStart: (controller, url) {
-              if (!mounted) return;
-              setState(() {
-                if (url != null) {
+              if (url != null) {
+                setState(() {
                   this.url = url.toString();
                   _urlController.text = this.url;
-                }
-              });
+                  // Clear sniffed URLs on new page load
+                  detectedVideoUrls.clear();
+                  isSniffedDetected = false;
+                  // Check for magic extraction
+                  isMagicExtractable = LinkParser.isVideoUrl(this.url);
+                });
+              }
             },
-            // Sniffing Method 1: onLoadResource (Triggers when resources are loaded by the DOM)
             onLoadResource: (controller, resource) {
               _checkAndAddVideoUrl(resource.url?.toString(), null);
             },
-            // Sniffing Method 2: shouldInterceptRequest (Triggers for every network request the WebView makes)
             shouldInterceptRequest: (controller, request) async {
               _checkAndAddVideoUrl(request.url.toString(), null);
-              return null; // Return null to let the WebView proceed with the request normally
+              return null;
             },
           ),
+          if (isExtracting)
+            Container(
+              color: Colors.black45,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
         ],
       ),
-      // Smoothly animate the FAB when a video is detected
       floatingActionButton: AnimatedSlide(
         duration: const Duration(milliseconds: 300),
-        offset: isVideoDetected ? Offset.zero : const Offset(0, 2),
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 300),
-          opacity: isVideoDetected ? 1.0 : 0.0,
-          child: FloatingActionButton.extended(
-            onPressed: _showDownloadBottomSheet,
-            icon: const Icon(Icons.download),
-            label: Text('${detectedVideoUrls.length} Videos'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          ),
+        offset: showFab ? Offset.zero : const Offset(0, 2),
+        child: FloatingActionButton.extended(
+          onPressed: isExtracting ? null : _onDownloadPressed,
+          icon: isMagicExtractable 
+              ? const Icon(Icons.auto_awesome) 
+              : const Icon(Icons.download),
+          label: Text(isMagicExtractable 
+              ? 'Magic Download' 
+              : '${detectedVideoUrls.length} sniffed'),
+          backgroundColor: isMagicExtractable 
+              ? Colors.redAccent 
+              : Theme.of(context).colorScheme.primary,
+          foregroundColor: Colors.white,
         ),
       ),
     );

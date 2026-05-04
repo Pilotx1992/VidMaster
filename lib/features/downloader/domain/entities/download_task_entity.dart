@@ -1,3 +1,5 @@
+import 'download_url_info.dart';
+
 /// Status of a download task, mirroring flutter_downloader's DownloadTaskStatus
 /// but decoupled from the package so Domain stays pure.
 enum DownloadStatus {
@@ -18,6 +20,12 @@ enum DownloadStatus {
 
   /// Cancelled by the user.
   cancelled,
+
+  /// Metadata is being fetched (yt-dlp).
+  extracting,
+
+  /// DASH streams are being merged (FFmpeg).
+  merging,
 }
 
 /// Represents a single download task in the Domain layer.
@@ -63,6 +71,15 @@ final class DownloadTaskEntity {
   /// Whether this download should only run on Wi-Fi.
   final bool wifiOnly;
 
+  /// Which engine is handling this task (Native vs FFmpeg).
+  final DownloadEngineType engine;
+
+  /// Sub-task ID for the video stream (DASH only).
+  final String? videoTaskId;
+
+  /// Sub-task ID for the audio stream (DASH only).
+  final String? audioTaskId;
+
   const DownloadTaskEntity({
     required this.taskId,
     required this.url,
@@ -70,6 +87,7 @@ final class DownloadTaskEntity {
     required this.saveDirectory,
     required this.status,
     required this.createdAt,
+    required this.engine,
     this.progressPercent = 0,
     this.totalBytes,
     this.downloadedBytes = 0,
@@ -77,6 +95,8 @@ final class DownloadTaskEntity {
     this.completedAt,
     this.errorMessage,
     this.wifiOnly = false,
+    this.videoTaskId,
+    this.audioTaskId,
   });
 
   // ─── Computed Properties ───────────────────────────────────────────────
@@ -110,6 +130,7 @@ final class DownloadTaskEntity {
   }
 
   DownloadTaskEntity copyWith({
+    String? taskId,
     DownloadStatus? status,
     int? progressPercent,
     int? downloadedBytes,
@@ -117,14 +138,17 @@ final class DownloadTaskEntity {
     int? totalBytes,
     DateTime? completedAt,
     String? errorMessage,
+    String? videoTaskId,
+    String? audioTaskId,
   }) {
     return DownloadTaskEntity(
-      taskId: taskId,
+      taskId: taskId ?? this.taskId,
       url: url,
       fileName: fileName,
       saveDirectory: saveDirectory,
       status: status ?? this.status,
       createdAt: createdAt,
+      engine: engine,
       progressPercent: progressPercent ?? this.progressPercent,
       totalBytes: totalBytes ?? this.totalBytes,
       downloadedBytes: downloadedBytes ?? this.downloadedBytes,
@@ -132,6 +156,8 @@ final class DownloadTaskEntity {
       completedAt: completedAt ?? this.completedAt,
       errorMessage: errorMessage ?? this.errorMessage,
       wifiOnly: wifiOnly,
+      videoTaskId: videoTaskId ?? this.videoTaskId,
+      audioTaskId: audioTaskId ?? this.audioTaskId,
     );
   }
 

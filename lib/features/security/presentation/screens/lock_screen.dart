@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
@@ -22,6 +23,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   @override
   void initState() {
     super.initState();
+    _secureScreen();
     // Auto-trigger biometric on open.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(appAuthProvider.notifier).authenticateWithBiometric();
@@ -35,8 +37,13 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     });
   }
 
+  Future<void> _secureScreen() async {
+    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+  }
+
   @override
   void dispose() {
+    FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
     _pinController.dispose();
     super.dispose();
   }

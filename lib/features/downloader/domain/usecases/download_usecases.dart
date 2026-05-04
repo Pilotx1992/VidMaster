@@ -43,6 +43,7 @@ final class StartDownload
         url: params.url,
         fileName: params.fileName,
         saveDirectory: params.saveDirectory,
+        engine: params.engine,
         wifiOnly: params.wifiOnly,
       );
 }
@@ -51,11 +52,13 @@ final class StartDownloadParams {
   final String url;
   final String fileName;
   final String saveDirectory;
+  final DownloadEngineType? engine;
   final bool wifiOnly;
   const StartDownloadParams({
     required this.url,
     required this.fileName,
     required this.saveDirectory,
+    this.engine,
     this.wifiOnly = false,
   });
 }
@@ -102,6 +105,24 @@ final class RetryDownload implements UseCase<void, TaskIdParams> {
   @override
   Future<Either<Failure, void>> call(TaskIdParams params) =>
       _repository.retryDownload(params.taskId);
+}
+
+final class UpdateDownloadStatusParams {
+  final String taskId;
+  final DownloadStatus status;
+  const UpdateDownloadStatusParams({
+    required this.taskId,
+    required this.status,
+  });
+}
+
+final class UpdateDownloadStatus implements UseCase<void, UpdateDownloadStatusParams> {
+  final DownloaderRepository _repository;
+  const UpdateDownloadStatus(this._repository);
+
+  @override
+  Future<Either<Failure, void>> call(UpdateDownloadStatusParams params) =>
+      _repository.updateDownloadStatus(params.taskId, params.status);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

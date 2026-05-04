@@ -19,10 +19,10 @@ class DownloaderLocalDataSource {
 
   /// Inserts or updates a download task.
   /// Returns the Isar-assigned row ID.
-  int putTask(DownloadTaskModel model) {
+  Future<int> putTask(DownloadTaskModel model) async {
     try {
-      return _isar.writeTxnSync(() {
-        return _box.putSync(model);
+      return await _isar.writeTxn(() async {
+        return await _box.put(model);
       });
     } catch (e) {
       throw CacheException(message: 'Failed to save download task: $e');
@@ -32,32 +32,32 @@ class DownloaderLocalDataSource {
   // ─── READ ─────────────────────────────────────────────────────────────
 
   /// Returns the task matching [taskId] (the engine-opaque ID), or `null`.
-  DownloadTaskModel? getTaskByTaskId(String taskId) {
+  Future<DownloadTaskModel?> getTaskByTaskId(String taskId) async {
     try {
-      return _box.filter().taskIdEqualTo(taskId).findFirstSync();
+      return await _box.filter().taskIdEqualTo(taskId).findFirst();
     } catch (e) {
       throw CacheException(message: 'Failed to query task by taskId: $e');
     }
   }
 
   /// Returns all persisted download tasks, ordered by [createdAt] descending.
-  List<DownloadTaskModel> getAllTasks() {
+  Future<List<DownloadTaskModel>> getAllTasks() async {
     try {
-      return _box.where().sortByCreatedAtDesc().findAllSync();
+      return await _box.where().sortByCreatedAtDesc().findAll();
     } catch (e) {
       throw CacheException(message: 'Failed to fetch all tasks: $e');
     }
   }
 
   /// Returns tasks whose [statusIndex] matches any of [statuses].
-  List<DownloadTaskModel> getTasksByStatuses(List<DownloadStatus> statuses) {
+  Future<List<DownloadTaskModel>> getTasksByStatuses(List<DownloadStatus> statuses) async {
     try {
       final indices = statuses.map((s) => s.index).toList();
-      return _box
+      return await _box
           .filter()
           .anyOf(indices, (q, int idx) => q.statusIndexEqualTo(idx))
           .sortByCreatedAtDesc()
-          .findAllSync();
+          .findAll();
     } catch (e) {
       throw CacheException(message: 'Failed to query tasks by status: $e');
     }
@@ -67,10 +67,10 @@ class DownloaderLocalDataSource {
 
   /// Removes the task with the given engine [taskId].
   /// Returns `true` if a record was actually deleted.
-  bool deleteByTaskId(String taskId) {
+  Future<bool> deleteByTaskId(String taskId) async {
     try {
-      return _isar.writeTxnSync(() {
-        final count = _box.filter().taskIdEqualTo(taskId).deleteAllSync();
+      return await _isar.writeTxn(() async {
+        final count = await _box.filter().taskIdEqualTo(taskId).deleteAll();
         return count > 0;
       });
     } catch (e) {
@@ -85,10 +85,10 @@ class DownloaderLocalDataSource {
   /// Emits the full list of models whenever any record changes.
   Stream<List<DownloadTaskModel>> watchAllTasks() {
     try {
-      // Isar watch doesn't emit immediately, but `.watchFast` triggers on any change to the collection.
+      // Isar watch doesn't emit immediately, but `.watchLazy` triggers on any change to the collection.
       // This is a naive watch that emits all objects when anything changes.
-      return _box.watchLazy(fireImmediately: true).map((_) {
-        return _box.where().sortByCreatedAtDesc().findAllSync();
+      return _box.watchLazy(fireImmediately: true).asyncMap((_) async {
+        return await _box.where().sortByCreatedAtDesc().findAll();
       });
     } catch (e) {
       throw CacheException(message: 'Failed to watch tasks: $e');

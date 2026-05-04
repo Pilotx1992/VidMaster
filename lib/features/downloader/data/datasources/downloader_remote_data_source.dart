@@ -58,10 +58,14 @@ class DownloaderRemoteDataSource {
         url,
       );
 
+      // ── Determine Engine (Hybrid Router) ───────────────────────────
+      final engine = _determineEngine(contentType, url);
+
       return DownloadUrlInfo(
         url: url,
         suggestedFileName: suggestedFileName,
         supportsResume: supportsResume,
+        engine: engine,
         fileSizeBytes: contentLength,
         mimeType: contentType,
       );
@@ -73,6 +77,30 @@ class DownloaderRemoteDataSource {
     } catch (e) {
       throw ServerException(message: 'Unexpected error validating URL: $e');
     }
+  }
+
+  /// The "Hybrid Router" logic.
+  /// Classifies the URL as [DownloadEngineType.ffmpeg] if it's an HLS/M3U8 stream,
+  /// otherwise defaults to [DownloadEngineType.native].
+  DownloadEngineType _determineEngine(String? contentType, String url) {
+    final mime = contentType?.toLowerCase() ?? '';
+    final path = url.toLowerCase();
+
+    // 1. Check MIME types
+    if (mime.contains('mpegurl') ||
+        mime.contains('apple.mpegurl') ||
+        mime.contains('x-mpegurl')) {
+      return DownloadEngineType.ffmpeg;
+    }
+
+    // 2. Check extension as fallback
+    if (path.endsWith('.m3u8') ||
+        path.contains('.m3u8?') ||
+        path.endsWith('.m3u')) {
+      return DownloadEngineType.ffmpeg;
+    }
+
+    return DownloadEngineType.native;
   }
 
   /// Extracts a reasonable file name from [contentDisposition] or the [url].

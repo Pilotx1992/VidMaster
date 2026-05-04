@@ -11,6 +11,9 @@ import 'di.dart';
 import 'features/music_player/data/audio_handler.dart';
 import 'l10n/app_localizations.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
+import 'features/video_player/presentation/widgets/mini_player_layer.dart';
+import 'dart:io';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,11 +24,34 @@ Future<void> main() async {
 
   await FlutterDownloader.initialize(debug: true, ignoreSsl: true);
 
+  // Initialize Google Cast context
+  const appId = 'CC1AD845';
+  GoogleCastOptions? castOptions;
+  if (Platform.isAndroid) {
+    castOptions = GoogleCastOptionsAndroid(
+      appId: appId,
+      stopCastingOnAppTerminated: true,
+    );
+  } else if (Platform.isIOS) {
+    castOptions = IOSGoogleCastOptions(
+      GoogleCastDiscoveryCriteriaInitialize.initWithApplicationID(appId),
+      stopCastingOnAppTerminated: true,
+    );
+  }
+
+  if (castOptions != null) {
+    await GoogleCastContext.instance.setSharedInstanceWithOptions(castOptions);
+  }
+
   final isar = await initIsar();
   final vaultBox = await initHive();
   final sharedPreferences = await SharedPreferences.getInstance();
 
-  final audioPlayer = AudioPlayer();
+  final equalizer = AndroidEqualizer();
+  final audioPlayer = AudioPlayer(
+    audioPipeline: AudioPipeline(androidAudioEffects: [equalizer]),
+  );
+
   final audioHandler = await AudioService.init(
     builder: () => VidMasterAudioHandler(audioPlayer),
     config: const AudioServiceConfig(
@@ -41,6 +67,7 @@ Future<void> main() async {
         isarProvider.overrideWithValue(isar),
         vaultBoxProvider.overrideWithValue(vaultBox),
         sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+        androidEqualizerProvider.overrideWithValue(equalizer),
         audioPlayerProvider.overrideWithValue(audioPlayer),
         audioHandlerProvider.overrideWithValue(audioHandler),
       ],
@@ -61,6 +88,14 @@ class VidMasterApp extends StatelessWidget {
       routerConfig: AppRouter.router,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            child!,
+            const MiniPlayerLayer(),
+          ],
+        );
+      },
     );
   }
 }
