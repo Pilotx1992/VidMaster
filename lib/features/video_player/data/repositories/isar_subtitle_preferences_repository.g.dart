@@ -64,7 +64,7 @@ const IsarSubtitleSettingsRecordSchema = CollectionSchema(
   getId: _isarSubtitleSettingsRecordGetId,
   getLinks: _isarSubtitleSettingsRecordGetLinks,
   attach: _isarSubtitleSettingsRecordAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _isarSubtitleSettingsRecordEstimateSize(
@@ -951,7 +951,7 @@ const IsarExternalSubtitleRecordSchema = CollectionSchema(
   getId: _isarExternalSubtitleRecordGetId,
   getLinks: _isarExternalSubtitleRecordGetLinks,
   attach: _isarExternalSubtitleRecordAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _isarExternalSubtitleRecordEstimateSize(

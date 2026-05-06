@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../models/video_model.dart';
 
 /// Contract for local database operations related to Videos.

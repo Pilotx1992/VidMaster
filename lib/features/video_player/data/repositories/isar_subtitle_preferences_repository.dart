@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import '../../domain/entities/subtitle_settings.dart';
 import '../../domain/repositories/subtitle_preferences_repository.dart';
 

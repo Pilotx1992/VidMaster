@@ -1,5 +1,5 @@
 import 'package:crypto/crypto.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../domain/repositories/resume_repository.dart';
 import '../models/video_resume_isar.dart';

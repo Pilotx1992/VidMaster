@@ -103,7 +103,7 @@ const VideoModelSchema = CollectionSchema(
   getId: _videoModelGetId,
   getLinks: _videoModelGetLinks,
   attach: _videoModelAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _videoModelEstimateSize(

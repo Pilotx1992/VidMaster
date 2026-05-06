@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../../../core/error/exceptions.dart';
 import '../../domain/entities/download_task_entity.dart';

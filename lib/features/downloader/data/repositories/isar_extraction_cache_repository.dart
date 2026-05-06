@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../core/downloader_constants.dart';
 import '../../domain/entities/extraction_result.dart';

@@ -1,3 +1,5 @@
+import com.chaquo.python.ChaquopyExtension
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -8,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.vidmaster.app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -27,15 +29,21 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion // Chaquopy requires at least 21
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        python {
-            version = "3.8"
-            pip {
-                install("yt-dlp==2024.8.6")
-                install("certifi")
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+        }
+
+        extensions.configure<ChaquopyExtension>("chaquopy") {
+            defaultConfig {
+                version = "3.10"
+                pip {
+                    install("yt-dlp==2024.8.6")
+                    install("certifi")
+                }
             }
         }
     }
@@ -50,15 +58,6 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-        }
-    }
-
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = false
         }
     }
 }

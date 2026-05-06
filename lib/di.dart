@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:on_audio_query/on_audio_query.dart';

@@ -1,4 +1,4 @@
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../models/audio_track_model.dart';
 // Note: PlaylistModel omitted as per previous task constraints; 

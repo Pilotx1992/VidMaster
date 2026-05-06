@@ -5,15 +5,14 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   flutter_secure_storage_linux
   irondash_engine_context
-  isar_flutter_libs
-  media_kit_libs_linux
+  isar_community_flutter_libs
   media_kit_video
   super_native_extensions
   url_launcher_linux
-  volume_controller
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  jni
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

@@ -53,7 +53,7 @@ const VideoResumeIsarSchema = CollectionSchema(
   getId: _videoResumeIsarGetId,
   getLinks: _videoResumeIsarGetLinks,
   attach: _videoResumeIsarAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _videoResumeIsarEstimateSize(

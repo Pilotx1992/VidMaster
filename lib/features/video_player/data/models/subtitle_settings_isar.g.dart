@@ -60,7 +60,7 @@ const SubtitleSettingsIsarSchema = CollectionSchema(
   getId: _subtitleSettingsIsarGetId,
   getLinks: _subtitleSettingsIsarGetLinks,
   attach: _subtitleSettingsIsarAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _subtitleSettingsIsarEstimateSize(

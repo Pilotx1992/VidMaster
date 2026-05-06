@@ -6,8 +6,7 @@ part of 'encrypted_file_metadata_model.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
-class EncryptedFileMetadataModelAdapter
-    extends TypeAdapter<EncryptedFileMetadataModel> {
+class EncryptedFileMetadataModelAdapter extends TypeAdapter<EncryptedFileMetadataModel> {
   @override
   final int typeId = 0;
 

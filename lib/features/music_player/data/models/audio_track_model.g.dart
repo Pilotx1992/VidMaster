@@ -103,7 +103,7 @@ const AudioTrackModelSchema = CollectionSchema(
   getId: _audioTrackModelGetId,
   getLinks: _audioTrackModelGetLinks,
   attach: _audioTrackModelAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _audioTrackModelEstimateSize(

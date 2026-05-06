@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
+import 'package:isar_community/isar.dart';
 
 import '../../data/data_sources/video_engine.dart';
 import '../../data/repositories/isar_resume_repository.dart';

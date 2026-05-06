@@ -59,7 +59,7 @@ const ExtractionCacheModelSchema = CollectionSchema(
   getId: _extractionCacheModelGetId,
   getLinks: _extractionCacheModelGetLinks,
   attach: _extractionCacheModelAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _extractionCacheModelEstimateSize(
