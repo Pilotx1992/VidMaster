@@ -21,7 +21,8 @@ final class SetupPin implements UseCase<void, SetupPinParams> {
   final AuthRepository _repository;
   const SetupPin(this._repository);
   @override
-  Future<Either<Failure, void>> call(SetupPinParams params) => _repository.setupPin(params.pin);
+  Future<Either<Failure, void>> call(SetupPinParams params) =>
+      _repository.setupPin(params.pin);
 }
 
 final class ValidatePinParams {
@@ -33,19 +34,22 @@ final class ValidatePin implements UseCase<bool, ValidatePinParams> {
   final AuthRepository _repository;
   const ValidatePin(this._repository);
   @override
-  Future<Either<Failure, bool>> call(ValidatePinParams params) => _repository.verifyPin(params.pin);
+  Future<Either<Failure, bool>> call(ValidatePinParams params) =>
+      _repository.verifyPin(params.pin);
 }
 
 final class AuthenticateWithBiometric implements UseCase<bool, NoParams> {
   final VaultRepository _repository;
   const AuthenticateWithBiometric(this._repository);
   @override
-  Future<Either<Failure, bool>> call(NoParams params) => _repository.authenticateUser(null);
+  Future<Either<Failure, bool>> call(NoParams params) =>
+      _repository.authenticateWithBiometric();
 }
 
 final class GetAuthState implements UseCase<AuthState, NoParams> {
   final AuthRepository _repository;
   const GetAuthState(this._repository);
   @override
-  Future<Either<Failure, AuthState>> call(NoParams params) => _repository.getAuthState();
+  Future<Either<Failure, AuthState>> call(NoParams params) =>
+      _repository.getAuthState();
 }

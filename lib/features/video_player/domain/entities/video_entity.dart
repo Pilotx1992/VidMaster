@@ -33,6 +33,10 @@ final class VideoEntity {
   /// Timestamp of last playback. Used for "Recently Played" sorting.
   final DateTime? lastPlayedAt;
 
+  /// Timestamp of the file's last modification on disk.
+  /// Used as the primary "Date" sort key for unplayed videos.
+  final DateTime? fileModifiedAt;
+
   /// Number of times this file has been played.
   final int playCount;
 
@@ -53,6 +57,7 @@ final class VideoEntity {
     this.lastPositionMs,
     this.resolution,
     this.lastPlayedAt,
+    this.fileModifiedAt,
     this.playCount = 0,
     this.isFavourite = false,
     this.isInVault = false,
@@ -79,7 +84,7 @@ final class VideoEntity {
     if (durationMs == null || durationMs == 0 || lastPositionMs == null) {
       return 0.0;
     }
-    return (lastPositionMs! / durationMs!).clamp(0.0, 1.0);
+    return (lastPositionMs! / durationMs!).clamp(0.0, 1.0).toDouble();
   }
 
   /// Human-readable file size. Example: "1.4 GB", "720 MB"
@@ -134,6 +139,7 @@ final class VideoEntity {
     int? lastPositionMs,
     String? resolution,
     DateTime? lastPlayedAt,
+    DateTime? fileModifiedAt,
     int? playCount,
     bool? isFavourite,
     bool? isInVault,
@@ -148,6 +154,7 @@ final class VideoEntity {
       lastPositionMs: lastPositionMs ?? this.lastPositionMs,
       resolution: resolution ?? this.resolution,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      fileModifiedAt: fileModifiedAt ?? this.fileModifiedAt,
       playCount: playCount ?? this.playCount,
       isFavourite: isFavourite ?? this.isFavourite,
       isInVault: isInVault ?? this.isInVault,

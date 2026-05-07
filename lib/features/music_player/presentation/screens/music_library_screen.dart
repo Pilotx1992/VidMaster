@@ -21,7 +21,7 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(musicLibraryProvider.notifier).loadLibrary();
     });
@@ -36,6 +36,7 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(musicLibraryProvider);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -49,15 +50,16 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
                 style: const TextStyle(color: Colors.white),
                 onChanged: (v) => ref.read(musicLibraryProvider.notifier).setSearchQuery(v),
               )
-            : const Text('Music Library'),
+            : const Text('Premium'),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Theme.of(context).colorScheme.onPrimary,
-          unselectedLabelColor: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7),
-          indicatorColor: Theme.of(context).colorScheme.secondary,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          indicatorColor: cs.secondary,
           isScrollable: true,
           tabs: const [
             Tab(text: 'Songs'),
+            Tab(text: 'Folders'),
             Tab(text: 'Albums'),
             Tab(text: 'Artists'),
             Tab(text: 'Playlists'),
@@ -80,6 +82,21 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
                   ref.read(musicLibraryProvider.notifier).setSearchQuery('');
                 }
               });
+            },
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'downloads', child: Text('Downloads')),
+              PopupMenuItem(value: 'settings', child: Text('Settings')),
+            ],
+            onSelected: (v) {
+              switch (v) {
+                case 'downloads':
+                  context.push(AppRoutes.downloads);
+                case 'settings':
+                  context.push(AppRoutes.settings);
+              }
             },
           ),
         ],
@@ -133,11 +150,17 @@ class _MusicLibraryScreenState extends ConsumerState<MusicLibraryScreen>
       controller: _tabController,
       children: [
         _buildSongsTab(state),
+        _buildFoldersTab(state),
         _buildAlbumsTab(state),
         _buildArtistsTab(state),
         _buildPlaylistsTab(state),
       ],
     );
+  }
+
+  Widget _buildFoldersTab(MusicLibraryState state) {
+    // Premium UI parity only (feature can be implemented later).
+    return _buildEmptyState('Folders view (coming soon).');
   }
 
   Widget _buildSongsTab(MusicLibraryState state) {

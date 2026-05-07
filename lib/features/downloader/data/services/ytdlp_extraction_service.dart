@@ -1,6 +1,5 @@
-import 'dart:convert';
-import 'dart:isolate';
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
@@ -21,12 +20,18 @@ class YtdlpExtractionService implements ExtractionService {
     final cleanUrl = LinkParser.clean(url);
 
     try {
-      // 1. Fetch JSON string from Python via MethodChannel
-      // We use a timeout to prevent the app from hanging on slow extractions
-      final jsonString = await _fetchInIsolate(cleanUrl)
+      // Fetch JSON string from Python via MethodChannel.
+      //
+      // NOTE: Avoid using MethodChannel from a spawned isolate; background isolate
+      // messenger initialization can fail on some devices/ROMs and cause runtime
+      // type errors. The heavy work is executed in Python; the channel call is async.
+      const channel = MethodChannel('com.vidmaster/ytdlp');
+      final jsonString = await channel
+          .invokeMethod<String>('fetchMetadata', cleanUrl)
           .timeout(const Duration(seconds: DownloaderConstants.extractionTimeoutSeconds));
 
-      final data = jsonDecode(jsonString) as Map<String, dynamic>;
+      final safeJson = jsonString ?? '{"error":"Empty response from engine"}';
+      final data = jsonDecode(safeJson) as Map<String, dynamic>;
 
       if (data.containsKey('error')) {
         throw ExtractionException(
@@ -51,39 +56,6 @@ class YtdlpExtractionService implements ExtractionService {
         'Failed to parse extraction result: $e',
         url: cleanUrl,
       );
-    }
-  }
-
-  /// Spawns a Dart Isolate to handle the MethodChannel call.
-  Future<String> _fetchInIsolate(String url) async {
-    final rootToken = RootIsolateToken.instance!;
-    final receivePort = ReceivePort();
-    
-    await Isolate.spawn(
-      _isolateEntry, 
-      _IsolatePayload(
-        sendPort: receivePort.sendPort, 
-        url: url, 
-        token: rootToken,
-      ),
-    );
-    
-    final result = await receivePort.first;
-    if (result is String) return result;
-    throw Exception('Isolate returned invalid result type');
-  }
-
-  /// Entry point for the extraction Isolate.
-  static Future<void> _isolateEntry(_IsolatePayload payload) async {
-    // ✅ REQUIRED: Initialize binary messenger for MethodChannel in background isolate
-    BackgroundIsolateBinaryMessenger.ensureInitialized(payload.token);
-
-    try {
-      const channel = MethodChannel('com.vidmaster/ytdlp');
-      final result = await channel.invokeMethod<String>('fetchMetadata', payload.url);
-      payload.sendPort.send(result ?? '{"error": "Empty response from engine"}');
-    } catch (e) {
-      payload.sendPort.send('{"error": "$e"}');
     }
   }
 
@@ -163,17 +135,4 @@ class YtdlpExtractionService implements ExtractionService {
       fetchedAt:    DateTime.now(),
     );
   }
-}
-
-/// Payload model for Isolate communication.
-class _IsolatePayload {
-  final SendPort sendPort;
-  final String url;
-  final RootIsolateToken token;
-
-  _IsolatePayload({
-    required this.sendPort,
-    required this.url,
-    required this.token,
-  });
 }

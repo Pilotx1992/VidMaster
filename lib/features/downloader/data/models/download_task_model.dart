@@ -27,6 +27,8 @@ class DownloadTaskModel {
   DateTime? completedAt;
   String? errorMessage;
   bool wifiOnly;
+  String? videoTaskId;
+  String? audioTaskId;
 
   DownloadTaskModel({
     required this.taskId,
@@ -43,6 +45,8 @@ class DownloadTaskModel {
     this.completedAt,
     this.errorMessage,
     this.wifiOnly = false,
+    this.videoTaskId,
+    this.audioTaskId,
   });
 
   DownloadTaskEntity toDomain() {
@@ -55,9 +59,10 @@ class DownloadTaskModel {
           ? DownloadStatus.values[statusIndex]
           : DownloadStatus.failed,
       createdAt: createdAt,
-      engine: (engineIndex >= 0 && engineIndex < DownloadEngineType.values.length)
-          ? DownloadEngineType.values[engineIndex]
-          : DownloadEngineType.native,
+      engine:
+          (engineIndex >= 0 && engineIndex < DownloadEngineType.values.length)
+              ? DownloadEngineType.values[engineIndex]
+              : DownloadEngineType.native,
       progressPercent: progressPercent,
       totalBytes: totalBytes,
       downloadedBytes: downloadedBytes,
@@ -65,6 +70,8 @@ class DownloadTaskModel {
       completedAt: completedAt,
       errorMessage: errorMessage,
       wifiOnly: wifiOnly,
+      videoTaskId: videoTaskId,
+      audioTaskId: audioTaskId,
     );
   }
 
@@ -84,6 +91,8 @@ class DownloadTaskModel {
       completedAt: entity.completedAt,
       errorMessage: entity.errorMessage,
       wifiOnly: entity.wifiOnly,
+      videoTaskId: entity.videoTaskId,
+      audioTaskId: entity.audioTaskId,
     );
   }
 }

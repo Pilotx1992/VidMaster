@@ -275,34 +275,34 @@ vidmaster/
 
 | Package | Version | Purpose | Used In |
 |---|---|---|---|
-| `media_kit` | ^1.1.11 | FFmpeg video engine | VideoPlayerNotifier |
-| `media_kit_video` | ^1.2.5 | Video widget | VideoPlayerScreen |
-| `media_kit_libs_video` | ^1.0.5 | FFmpeg native libs | Build config |
-| `just_audio` | ^0.9.38 | Audio playback engine | MusicPlayerNotifier |
-| `audio_service` | ^0.18.14 | Background + notification | VidMasterAudioHandler |
+| `media_kit` | ^1.2.0 | FFmpeg video engine | VideoPlayerNotifier |
+| `media_kit_video` | ^2.0.1 | Video widget | VideoPlayerScreen |
+| `media_kit_libs_video` | ^1.0.0 | MPV/FFmpeg native libs (Android: libmpv) | Build/runtime |
+| `just_audio` | ^0.9.46 | Audio playback engine | MusicPlayerNotifier |
+| `audio_service` | ^0.18.15 | Background + notification | VidMasterAudioHandler |
 | `on_audio_query` | ^2.9.0 | MediaStore audio scan | MusicLocalDataSource |
-| `flutter_downloader` | ^1.11.6 | WorkManager downloads | DownloaderLocalDS |
-| `dio` | ^5.4.3+1 | HTTP + URL probing | DownloaderRemoteDS |
-| `flutter_riverpod` | ^2.5.1 | State management | All providers |
-| `riverpod_annotation` | ^2.3.5 | Code gen (optional) | — |
-| `isar` | ^3.1.0+1 | Local database | All models |
-| `isar_flutter_libs` | ^3.1.0+1 | Isar native libs | Build config |
-| `local_auth` | ^2.2.0 | Fingerprint + Face ID | AuthLocalDataSource |
-| `flutter_secure_storage` | ^9.0.0 | PIN hash storage | AuthLocalDataSource |
+| `flutter_downloader` | ^1.11.9 | WorkManager downloads | DownloaderLocalDS |
+| `dio` | ^5.7.0 | HTTP + URL probing | DownloaderRemoteDS |
+| `flutter_riverpod` | ^2.6.1 | State management | All providers |
+| `isar_community` | ^3.3.2 | Local database | All models |
+| `isar_community_flutter_libs` | ^3.3.2 | Isar native libs | Build config |
+| `hive` | ^2.2.3 | Encrypted vault metadata (box) | VaultMetadataDataSource |
 | `hive_flutter` | ^1.1.0 | Vault metadata only | VaultMetadataDataSource |
-| `crypto` | ^3.0.3 | SHA-256 utilities | FileEncryptionDS |
-| `go_router` | ^13.2.1 | Navigation | app_router.dart |
-| `permission_handler` | ^11.3.1 | Runtime permissions | VideoLocalDS |
+| `local_auth` | ^2.3.0 | Fingerprint + Face ID | AuthLocalDataSource |
+| `flutter_secure_storage` | ^9.2.2 | PIN hash storage | AuthLocalDataSource |
+| `crypto` | ^3.0.6 | SHA-256 utilities | FileEncryptionDS |
+| `bcrypt` | ^1.1.3 | PIN hashing | AuthLocalDataSource |
+| `go_router` | ^17.2.3 | Navigation | app_router.dart |
+| `permission_handler` | ^12.0.1 | Runtime permissions | VideoLocalDS |
 | `path_provider` | ^2.1.2 | App directories | VaultRepositoryImpl |
-| `file_picker` | ^8.0.3 | Subtitle file selection | VideoPlayerScreen |
-| `share_plus` | ^7.2.2 | Native share sheet | VideoPlayerScreen |
-| `flutter_local_notifications` | ^17.1.2 | Download notifications | DownloaderNotifier |
+| `file_picker` | ^8.1.7 | Subtitle file selection | VideoPlayerScreen |
+| `share_plus` | ^10.1.4 | Native share sheet | VideoPlayerScreen |
+| `flutter_local_notifications` | ^18.0.1 | Download notifications | DownloaderNotifier |
 | `video_thumbnail` | ^0.5.3 | Thumbnail generation | VideoLocalDataSource |
-| `connectivity_plus` | ^5.0.2 | Network state | DownloaderNotifier |
+| `connectivity_plus` | ^6.1.1 | Network state | DownloaderNotifier |
 | `intl` | ^0.20.2 | Localization | l10n |
 | `dartz` | ^0.10.1 | Either<L,R> (security + downloader) | Repository impls |
-| `fpdart` | ^1.2.0 | Either<L,R> (video) | VideoLibraryProvider |
-| `bcrypt` | ^1.2.0 | PIN hashing | AuthLocalDataSource |
+| `fpdart` | ^1.1.0 | Functional types | Video layer |
 
 > ⚠️ **Note:** Both `dartz` and `fpdart` are in the project. `dartz` is used in security/downloader layers, `fpdart` in video layer. Consider unifying to one library to reduce APK size.
 
@@ -310,12 +310,11 @@ vidmaster/
 
 | Package | Version | Purpose |
 |---|---|---|
-| `flutter_lints` | ^4.0.0 | Lint rules |
-| `mocktail` | ^1.0.3 | Mocking for tests |
-| `isar_generator` | ^3.1.0+1 | Isar code gen |
+| `flutter_lints` | ^5.0.0 | Lint rules |
+| `mocktail` | ^1.0.4 | Mocking for tests |
+| `isar_community_generator` | ^3.3.2 | Isar code gen |
 | `hive_generator` | ^2.0.1 | Hive adapters code gen |
-| `riverpod_generator` | ^2.4.0 | Riverpod code gen |
-| `build_runner` | ^2.4.9 | Code generation runner |
+| `build_runner` | ^2.4.14 | Code generation runner |
 | `integration_test` | sdk | Integration tests |
 
 ---
@@ -813,7 +812,7 @@ abstract interface class VaultRepository {
 | `PlaylistModel` | `playlist_model.dart` | uuid (index), name, trackIds, coverArtPath, createdAt | `PlaylistEntity` |
 | `DownloadTaskModel` | `download_task_model.dart` | taskId (index), url, fileName, saveDirectory, statusName, progressPercent, totalBytes, downloadedBytes, speedBytesPerSec, createdAt, completedAt, errorMessage, wifiOnly | `DownloadTaskEntity` |
 
-**Isar.open() schemas:** `[VideoModelSchema, AudioTrackModelSchema, PlaylistModelSchema, DownloadTaskModelSchema]`
+**Isar.open() schemas:** `[VideoModelSchema, VideoResumeIsarSchema, IsarSubtitleSettingsRecordSchema, IsarExternalSubtitleRecordSchema, AudioTrackModelSchema, PlaylistModelSchema, DownloadTaskModelSchema, ExtractionCacheModelSchema]`
 
 ---
 
@@ -1267,7 +1266,7 @@ Future<void> main() async {
   await FlutterDownloader.initialize(debug: false);    // 5. flutter_downloader WorkManager
   FlutterDownloader.registerCallback(_downloaderCallback);
 
-  final isar = await initIsar();                       // 6. Isar DB (4 schemas)
+  final isar = await initIsar();                       // 6. Isar DB (multiple schemas)
   final vaultBox = await initHive();                   // 7. Hive vault box
 
   SystemChrome.setSystemUIOverlayStyle(...);           // 8. Status bar styling
@@ -1473,11 +1472,12 @@ Progress updates via _downloaderCallback(taskId, status, progress)
 ### 21.1 Release Build Command
 
 ```bash
-# Generate .aab for Play Store (recommended)
-flutter build appbundle --release
+# Stable (production-safe) — no Python/Chaquopy
+flutter build appbundle --release --flavor stable
+flutter build apk --release --flavor stable --split-per-abi
 
-# Generate split APKs for direct distribution
-flutter build apk --split-per-abi --release
+# Experimental (sandbox) — Chaquopy/yt-dlp may be enabled
+flutter build apk --release --flavor experimental
 ```
 
 ### 21.2 Code Generation (when models change)
@@ -1570,5 +1570,5 @@ Generates: `lib/l10n/app_localizations.dart`
 ---
 
 *End of Blueprint — VidMaster v1.1*
-*Total project: 68 Dart files | ~14,000 lines of code*
-*Last reviewed: April 2026*
+*Total project (lib + test): 138 Dart files | ~27,395 lines of code*
+*Last reviewed: 2026-05-07*

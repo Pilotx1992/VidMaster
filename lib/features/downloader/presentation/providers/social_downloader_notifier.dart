@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/link_parser.dart';
+import '../../core/downloader_constants.dart';
 import '../../application/use_cases/extract_metadata_use_case.dart';
 import '../../application/use_cases/start_download_use_case.dart';
 import '../../domain/entities/download_task_entity.dart';
@@ -22,10 +23,10 @@ class SocialDownloaderNotifier extends StateNotifier<SocialDownloaderState> {
   // ── Extraction ─────────────────────────────────────────────
 
   Future<void> extractUrl(String url) async {
-    if (!LinkParser.isVideoUrl(url)) {
+    if (!LinkParser.isVideoUrl(url) && !LinkParser.isDirectMediaUrl(url)) {
       state = state.copyWith(
         extractionStatus: ExtractionStatus.error,
-        extractionError:  'This URL is not supported by VidMaster',
+        extractionError:  'Supported sources: ${DownloaderConstants.supportedPlatformNames.join(', ')}',
       );
       return;
     }

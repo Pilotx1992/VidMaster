@@ -1,8 +1,7 @@
 import 'package:isar_community/isar.dart';
 
 import '../models/audio_track_model.dart';
-// Note: PlaylistModel omitted as per previous task constraints; 
-// playlist operations will throw Unimplemented or CacheFailure in RepoImpl.
+import '../models/playlist_model.dart';
 
 /// Contract for local database operations related to Music.
 abstract interface class MusicLocalDataSource {
@@ -10,7 +9,7 @@ abstract interface class MusicLocalDataSource {
   Future<List<AudioTrackModel>> getTracksByAlbum(String album);
   Future<List<AudioTrackModel>> getTracksByArtist(String artist);
   Future<List<AudioTrackModel>> searchTracks(String query);
-  
+
   Future<List<String>> getAllAlbums();
   Future<List<String>> getAllArtists();
 
@@ -19,8 +18,13 @@ abstract interface class MusicLocalDataSource {
 
   Future<List<AudioTrackModel>> getRecentlyPlayed({required int limit});
   Future<List<AudioTrackModel>> getMostPlayed({required int limit});
-  
+
   Future<List<AudioTrackModel>> getFavouriteTracks();
+
+  Future<List<PlaylistModel>> getAllPlaylists();
+  Future<PlaylistModel?> getPlaylistById(String playlistId);
+  Future<void> savePlaylist(PlaylistModel playlist);
+  Future<bool> deletePlaylist(String playlistId);
 }
 
 /// Isar implementation of the music local data source.
@@ -30,6 +34,7 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   MusicLocalDataSourceImpl(this._isar);
 
   IsarCollection<AudioTrackModel> get _box => _isar.audioTrackModels;
+  IsarCollection<PlaylistModel> get _playlistBox => _isar.playlistModels;
 
   @override
   Future<List<AudioTrackModel>> getAllTracks() async {
@@ -112,5 +117,28 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
         .sortByLastPlayedAtDesc()
         .findAll();
   }
-}
 
+  @override
+  Future<List<PlaylistModel>> getAllPlaylists() async {
+    return _playlistBox.where().sortByUpdatedAtDesc().findAll();
+  }
+
+  @override
+  Future<PlaylistModel?> getPlaylistById(String playlistId) async {
+    return _playlistBox.getByPlaylistId(playlistId);
+  }
+
+  @override
+  Future<void> savePlaylist(PlaylistModel playlist) async {
+    await _isar.writeTxn(() async {
+      await _playlistBox.putByPlaylistId(playlist);
+    });
+  }
+
+  @override
+  Future<bool> deletePlaylist(String playlistId) async {
+    return _isar.writeTxn(() async {
+      return _playlistBox.deleteByPlaylistId(playlistId);
+    });
+  }
+}

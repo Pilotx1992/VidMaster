@@ -27,6 +27,9 @@ abstract interface class VaultRepository {
   /// Returns [VaultLockedFailure] if too many failed attempts.
   Future<Either<Failure, bool>> authenticateUser(String? inputPin);
 
+  /// Authenticates with device biometrics and unlocks the vault session.
+  Future<Either<Failure, bool>> authenticateWithBiometric();
+
   /// Returns true if the vault is currently accessible (user is authenticated
   /// and the lock timeout has not expired).
   Future<Either<Failure, bool>> isVaultUnlocked();

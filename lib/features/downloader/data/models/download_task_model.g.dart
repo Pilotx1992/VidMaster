@@ -17,73 +17,83 @@ const DownloadTaskModelSchema = CollectionSchema(
   name: r'DownloadTaskModel',
   id: 1668844351718852422,
   properties: {
-    r'completedAt': PropertySchema(
+    r'audioTaskId': PropertySchema(
       id: 0,
+      name: r'audioTaskId',
+      type: IsarType.string,
+    ),
+    r'completedAt': PropertySchema(
+      id: 1,
       name: r'completedAt',
       type: IsarType.dateTime,
     ),
     r'createdAt': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'downloadedBytes': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'downloadedBytes',
       type: IsarType.long,
     ),
     r'engineIndex': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'engineIndex',
       type: IsarType.long,
     ),
     r'errorMessage': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'errorMessage',
       type: IsarType.string,
     ),
     r'fileName': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'fileName',
       type: IsarType.string,
     ),
     r'progressPercent': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'progressPercent',
       type: IsarType.long,
     ),
     r'saveDirectory': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'saveDirectory',
       type: IsarType.string,
     ),
     r'speedBytesPerSec': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'speedBytesPerSec',
       type: IsarType.long,
     ),
     r'statusIndex': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'statusIndex',
       type: IsarType.long,
     ),
     r'taskId': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'taskId',
       type: IsarType.string,
     ),
     r'totalBytes': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'totalBytes',
       type: IsarType.long,
     ),
     r'url': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'url',
       type: IsarType.string,
     ),
+    r'videoTaskId': PropertySchema(
+      id: 14,
+      name: r'videoTaskId',
+      type: IsarType.string,
+    ),
     r'wifiOnly': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'wifiOnly',
       type: IsarType.bool,
     )
@@ -123,6 +133,12 @@ int _downloadTaskModelEstimateSize(
 ) {
   var bytesCount = offsets.last;
   {
+    final value = object.audioTaskId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.errorMessage;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -132,6 +148,12 @@ int _downloadTaskModelEstimateSize(
   bytesCount += 3 + object.saveDirectory.length * 3;
   bytesCount += 3 + object.taskId.length * 3;
   bytesCount += 3 + object.url.length * 3;
+  {
+    final value = object.videoTaskId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -141,20 +163,22 @@ void _downloadTaskModelSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeDateTime(offsets[0], object.completedAt);
-  writer.writeDateTime(offsets[1], object.createdAt);
-  writer.writeLong(offsets[2], object.downloadedBytes);
-  writer.writeLong(offsets[3], object.engineIndex);
-  writer.writeString(offsets[4], object.errorMessage);
-  writer.writeString(offsets[5], object.fileName);
-  writer.writeLong(offsets[6], object.progressPercent);
-  writer.writeString(offsets[7], object.saveDirectory);
-  writer.writeLong(offsets[8], object.speedBytesPerSec);
-  writer.writeLong(offsets[9], object.statusIndex);
-  writer.writeString(offsets[10], object.taskId);
-  writer.writeLong(offsets[11], object.totalBytes);
-  writer.writeString(offsets[12], object.url);
-  writer.writeBool(offsets[13], object.wifiOnly);
+  writer.writeString(offsets[0], object.audioTaskId);
+  writer.writeDateTime(offsets[1], object.completedAt);
+  writer.writeDateTime(offsets[2], object.createdAt);
+  writer.writeLong(offsets[3], object.downloadedBytes);
+  writer.writeLong(offsets[4], object.engineIndex);
+  writer.writeString(offsets[5], object.errorMessage);
+  writer.writeString(offsets[6], object.fileName);
+  writer.writeLong(offsets[7], object.progressPercent);
+  writer.writeString(offsets[8], object.saveDirectory);
+  writer.writeLong(offsets[9], object.speedBytesPerSec);
+  writer.writeLong(offsets[10], object.statusIndex);
+  writer.writeString(offsets[11], object.taskId);
+  writer.writeLong(offsets[12], object.totalBytes);
+  writer.writeString(offsets[13], object.url);
+  writer.writeString(offsets[14], object.videoTaskId);
+  writer.writeBool(offsets[15], object.wifiOnly);
 }
 
 DownloadTaskModel _downloadTaskModelDeserialize(
@@ -164,20 +188,22 @@ DownloadTaskModel _downloadTaskModelDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = DownloadTaskModel(
-    completedAt: reader.readDateTimeOrNull(offsets[0]),
-    createdAt: reader.readDateTime(offsets[1]),
-    downloadedBytes: reader.readLongOrNull(offsets[2]) ?? 0,
-    engineIndex: reader.readLong(offsets[3]),
-    errorMessage: reader.readStringOrNull(offsets[4]),
-    fileName: reader.readString(offsets[5]),
-    progressPercent: reader.readLongOrNull(offsets[6]) ?? 0,
-    saveDirectory: reader.readString(offsets[7]),
-    speedBytesPerSec: reader.readLongOrNull(offsets[8]),
-    statusIndex: reader.readLong(offsets[9]),
-    taskId: reader.readString(offsets[10]),
-    totalBytes: reader.readLongOrNull(offsets[11]),
-    url: reader.readString(offsets[12]),
-    wifiOnly: reader.readBoolOrNull(offsets[13]) ?? false,
+    audioTaskId: reader.readStringOrNull(offsets[0]),
+    completedAt: reader.readDateTimeOrNull(offsets[1]),
+    createdAt: reader.readDateTime(offsets[2]),
+    downloadedBytes: reader.readLongOrNull(offsets[3]) ?? 0,
+    engineIndex: reader.readLong(offsets[4]),
+    errorMessage: reader.readStringOrNull(offsets[5]),
+    fileName: reader.readString(offsets[6]),
+    progressPercent: reader.readLongOrNull(offsets[7]) ?? 0,
+    saveDirectory: reader.readString(offsets[8]),
+    speedBytesPerSec: reader.readLongOrNull(offsets[9]),
+    statusIndex: reader.readLong(offsets[10]),
+    taskId: reader.readString(offsets[11]),
+    totalBytes: reader.readLongOrNull(offsets[12]),
+    url: reader.readString(offsets[13]),
+    videoTaskId: reader.readStringOrNull(offsets[14]),
+    wifiOnly: reader.readBoolOrNull(offsets[15]) ?? false,
   );
   return object;
 }
@@ -190,32 +216,36 @@ P _downloadTaskModelDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 1:
-      return (reader.readDateTime(offset)) as P;
-    case 2:
-      return (reader.readLongOrNull(offset) ?? 0) as P;
-    case 3:
-      return (reader.readLong(offset)) as P;
-    case 4:
       return (reader.readStringOrNull(offset)) as P;
-    case 5:
-      return (reader.readString(offset)) as P;
-    case 6:
+    case 1:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 2:
+      return (reader.readDateTime(offset)) as P;
+    case 3:
       return (reader.readLongOrNull(offset) ?? 0) as P;
-    case 7:
-      return (reader.readString(offset)) as P;
-    case 8:
-      return (reader.readLongOrNull(offset)) as P;
-    case 9:
+    case 4:
       return (reader.readLong(offset)) as P;
-    case 10:
+    case 5:
+      return (reader.readStringOrNull(offset)) as P;
+    case 6:
       return (reader.readString(offset)) as P;
-    case 11:
+    case 7:
+      return (reader.readLongOrNull(offset) ?? 0) as P;
+    case 8:
+      return (reader.readString(offset)) as P;
+    case 9:
       return (reader.readLongOrNull(offset)) as P;
-    case 12:
+    case 10:
+      return (reader.readLong(offset)) as P;
+    case 11:
       return (reader.readString(offset)) as P;
+    case 12:
+      return (reader.readLongOrNull(offset)) as P;
     case 13:
+      return (reader.readString(offset)) as P;
+    case 14:
+      return (reader.readStringOrNull(offset)) as P;
+    case 15:
       return (reader.readBoolOrNull(offset) ?? false) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -416,6 +446,160 @@ extension DownloadTaskModelQueryWhere
 
 extension DownloadTaskModelQueryFilter
     on QueryBuilder<DownloadTaskModel, DownloadTaskModel, QFilterCondition> {
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'audioTaskId',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'audioTaskId',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'audioTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'audioTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'audioTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'audioTaskId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'audioTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'audioTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'audioTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'audioTaskId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'audioTaskId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      audioTaskIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'audioTaskId',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
       completedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
@@ -1673,6 +1857,160 @@ extension DownloadTaskModelQueryFilter
   }
 
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'videoTaskId',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'videoTaskId',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'videoTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'videoTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'videoTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'videoTaskId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'videoTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'videoTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'videoTaskId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'videoTaskId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'videoTaskId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
+      videoTaskIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'videoTaskId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterFilterCondition>
       wifiOnlyEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -1691,6 +2029,20 @@ extension DownloadTaskModelQueryLinks
 
 extension DownloadTaskModelQuerySortBy
     on QueryBuilder<DownloadTaskModel, DownloadTaskModel, QSortBy> {
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      sortByAudioTaskId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'audioTaskId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      sortByAudioTaskIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'audioTaskId', Sort.desc);
+    });
+  }
+
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
       sortByCompletedAt() {
     return QueryBuilder.apply(this, (query) {
@@ -1873,6 +2225,20 @@ extension DownloadTaskModelQuerySortBy
   }
 
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      sortByVideoTaskId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'videoTaskId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      sortByVideoTaskIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'videoTaskId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
       sortByWifiOnly() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'wifiOnly', Sort.asc);
@@ -1889,6 +2255,20 @@ extension DownloadTaskModelQuerySortBy
 
 extension DownloadTaskModelQuerySortThenBy
     on QueryBuilder<DownloadTaskModel, DownloadTaskModel, QSortThenBy> {
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      thenByAudioTaskId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'audioTaskId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      thenByAudioTaskIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'audioTaskId', Sort.desc);
+    });
+  }
+
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
       thenByCompletedAt() {
     return QueryBuilder.apply(this, (query) {
@@ -2084,6 +2464,20 @@ extension DownloadTaskModelQuerySortThenBy
   }
 
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      thenByVideoTaskId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'videoTaskId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
+      thenByVideoTaskIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'videoTaskId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QAfterSortBy>
       thenByWifiOnly() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'wifiOnly', Sort.asc);
@@ -2100,6 +2494,13 @@ extension DownloadTaskModelQuerySortThenBy
 
 extension DownloadTaskModelQueryWhereDistinct
     on QueryBuilder<DownloadTaskModel, DownloadTaskModel, QDistinct> {
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QDistinct>
+      distinctByAudioTaskId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'audioTaskId', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QDistinct>
       distinctByCompletedAt() {
     return QueryBuilder.apply(this, (query) {
@@ -2193,6 +2594,13 @@ extension DownloadTaskModelQueryWhereDistinct
   }
 
   QueryBuilder<DownloadTaskModel, DownloadTaskModel, QDistinct>
+      distinctByVideoTaskId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'videoTaskId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, DownloadTaskModel, QDistinct>
       distinctByWifiOnly() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'wifiOnly');
@@ -2205,6 +2613,13 @@ extension DownloadTaskModelQueryProperty
   QueryBuilder<DownloadTaskModel, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, String?, QQueryOperations>
+      audioTaskIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'audioTaskId');
     });
   }
 
@@ -2290,6 +2705,13 @@ extension DownloadTaskModelQueryProperty
   QueryBuilder<DownloadTaskModel, String, QQueryOperations> urlProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'url');
+    });
+  }
+
+  QueryBuilder<DownloadTaskModel, String?, QQueryOperations>
+      videoTaskIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'videoTaskId');
     });
   }
 

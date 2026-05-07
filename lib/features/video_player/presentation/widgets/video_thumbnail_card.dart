@@ -7,13 +7,11 @@ import '../providers/video_library_provider.dart';
 
 class VideoThumbnailCard extends ConsumerWidget {
   final VideoEntity video;
-  final List<VideoEntity> queue;
   final VoidCallback onTap;
   final VoidCallback onFavorite;
 
   const VideoThumbnailCard({
     required this.video,
-    required this.queue,
     required this.onTap,
     required this.onFavorite,
     super.key,
@@ -29,7 +27,11 @@ class VideoThumbnailCard extends ConsumerWidget {
           fit: StackFit.expand,
           children: [
             // Thumbnail or placeholder
-            _ThumbnailImage(video: video, ref: ref),
+            _ThumbnailImage(
+              key: ValueKey(video.filePath),
+              video: video,
+              ref: ref,
+            ),
 
             // Gradient overlay
             const DecoratedBox(
@@ -72,9 +74,19 @@ class VideoThumbnailCard extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
+                      fontSize: 9,
                       fontWeight: FontWeight.w500,
                       height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${video.folderName} · ${video.formattedSize}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 7,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -82,7 +94,7 @@ class VideoThumbnailCard extends ConsumerWidget {
                     video.formattedDuration,
                     style: const TextStyle(
                       color: Colors.white60,
-                      fontSize: 10,
+                      fontSize: 8,
                     ),
                   ),
                 ],
@@ -102,8 +114,8 @@ class VideoThumbnailCard extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
-                    video.isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: video.isFavorite
+                    video.isFavourite ? Icons.favorite : Icons.favorite_border,
+                    color: video.isFavourite
                         ? const Color(0xFFF9A825)
                         : Colors.white70,
                     size: 16,
@@ -126,7 +138,7 @@ class VideoThumbnailCard extends ConsumerWidget {
                   ),
                   child: const Text(
                     'Watched',
-                    style: TextStyle(color: Colors.white, fontSize: 9),
+                    style: TextStyle(color: Colors.white, fontSize: 7),
                   ),
                 ),
               ),
@@ -140,7 +152,7 @@ class VideoThumbnailCard extends ConsumerWidget {
 class _ThumbnailImage extends StatefulWidget {
   final VideoEntity video;
   final WidgetRef ref;
-  const _ThumbnailImage({required this.video, required this.ref});
+  const _ThumbnailImage({super.key, required this.video, required this.ref});
 
   @override
   State<_ThumbnailImage> createState() => _ThumbnailImageState();
@@ -148,22 +160,59 @@ class _ThumbnailImage extends StatefulWidget {
 
 class _ThumbnailImageState extends State<_ThumbnailImage> {
   String? _thumbPath;
-  bool _loading = false;
+  String? _loadingForPath;
 
   @override
   void initState() {
     super.initState();
     _thumbPath = widget.video.thumbnailPath;
-    if (_thumbPath == null) _loadThumbnail();
+    _loadingForPath = null;
+    if (_thumbPath == null) {
+      _loadThumbnailFor(widget.video.filePath);
+    }
   }
 
-  Future<void> _loadThumbnail() async {
-    if (_loading) return;
-    setState(() => _loading = true);
+  @override
+  void didUpdateWidget(covariant _ThumbnailImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.video.filePath != widget.video.filePath) {
+      _syncThumbnailForCurrentVideo();
+    }
+  }
+
+  void _syncThumbnailForCurrentVideo() {
+    final existingThumb = widget.video.thumbnailPath;
+
+    setState(() {
+      _thumbPath = existingThumb;
+      _loadingForPath = null;
+    });
+
+    if (existingThumb == null) {
+      _loadThumbnailFor(widget.video.filePath);
+    }
+  }
+
+  Future<void> _loadThumbnailFor(String videoPath) async {
+    if (_loadingForPath == videoPath) return;
+
+    if (!mounted) return;
+    setState(() {
+      _loadingForPath = videoPath;
+      _thumbPath = null;
+    });
+
     final path = await widget.ref
         .read(videoLibraryProvider.notifier)
-        .getThumbnail(widget.video.filePath);
-    if (mounted) setState(() => _thumbPath = path);
+        .getThumbnail(videoPath);
+
+    if (!mounted) return;
+    if (widget.video.filePath != videoPath) return;
+
+    setState(() {
+      _thumbPath = path;
+      _loadingForPath = null;
+    });
   }
 
   @override

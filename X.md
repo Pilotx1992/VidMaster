@@ -1,57 +1,53 @@
 # VidMaster — Pro Video Player Engine
-## Technical Blueprint & Product Requirements Document · v5.1 *(Agent-Verified)*
+## Technical Blueprint & PRD (Living Doc)
 
-> **Classification:** Technical Blueprint + PRD
-> **Status:** Ready for Implementation — Verified Against Actual Project
+> **Classification:** Technical Blueprint + PRD (living document)
 > **Target Platform:** Android (API 26+)
-> **Framework:** Flutter 3.x · media_kit · Riverpod
+> **Framework:** Flutter · media_kit · Riverpod
 > **Scope:** Core Playback · Gesture Engine · Subtitle Engine · Resume · PiP · Lock Mode · Performance Optimization
-> **Authors:** Engineering Team · Last Updated: 2026
-> **Database:** Isar (not Hive — confirmed by project scan)
+> **Last Updated:** 2026-05-07 (aligned with current code)
 
 ---
 
-## ⚡ Confirmed Project State (Agent-Verified)
+## ⚡ Current Project Reality (Verified)
 
-هذا القسم يوثق الوضع الفعلي للمشروع كما تم التحقق منه بفحص الكود.
+هذا القسم هو “مصدر الحقيقة” للوضع الحالي للمشروع (بعد إصلاحات الـ build/runtime).
 
-### المكتبات المثبتة (جاهزة — لا تعديل على pubspec.yaml)
+### Build Flavors (Production vs Sandbox)
 
-| المكتبة | الإصدار | الحالة |
-|--------|--------|--------|
-| `media_kit` | ^1.1.11 | ✅ موجودة |
-| `media_kit_video` | ^1.2.5 | ✅ موجودة |
-| `flutter_riverpod` | ^2.5.1 | ✅ موجودة |
-| `riverpod_annotation` | ^2.3.5 | ✅ موجودة |
-| `isar` | ^3.1.0+1 | ✅ موجودة ← **يُستخدم بدل Hive** |
-| `isar_flutter_libs` | ^3.1.0+1 | ✅ موجودة |
-| `crypto` | ^3.0.3 | ✅ موجودة (للـ md5) |
-| `file_picker` | ^8.0.3 | ✅ موجودة |
-| `build_runner` | ^2.4.9 | ✅ موجودة (dev) |
-| `flutter_secure_storage` | ^9.0.0 | ✅ موجودة |
+- **`stable`**: Production-safe build path (بدون Chaquopy/yt-dlp)
+- **`experimental`**: Sandbox build path (مع Chaquopy/yt-dlp + wheelhouse optional)
 
-### حالة الاختبارات
-- ✅ تم إضافة اختبارات وحدة لطبقة الـ video player domain وتعمل بنجاح
+### Commands (Android)
 
-### هيكل المشروع الحالي
+```bash
+# Debug run (stable)
+flutter run -d "<device>" --flavor stable
 
-```
-lib/
-├── core/              ✅ موجود (error, router, theme, usecase, widgets)
-├── features/
-│   ├── downloader/    ✅ كامل — لا تمسّه
-│   ├── music_player/  ✅ كامل — لا تمسّه
-│   ├── security/      ✅ جزئي — لا تمسّه
-│   ├── settings/      ✅ جزئي — لا تمسّه
-│   └── video_player/  🔧 موجود جزئياً — هنا نعمل
-└── main_screen.dart · main.dart
+# Release (stable) — split per ABI
+flutter build apk --release --flavor stable --split-per-abi
+
+# Release (experimental) — sandbox (Chaquopy; prefer no split-per-abi)
+flutter build apk --release --flavor experimental
 ```
 
-### قرار الـ Database
+### Storage / DB reality
 
-> **Hive غير موجود في المشروع. Isar مثبت ومُهيأ بالفعل.**
-> كل ما كان مكتوباً في هذا الـ PRD بـ "Hive" تم استبداله بـ "Isar".
-> لا تضف Hive للمشروع.
+- **Isar موجود ومستخدم** (videos/audio/playlists/downloads + resume/subtitles preferences)
+- **Hive موجود ومستخدم** (vault metadata only)
+
+> أي جزء في هذا الملف يذكر “Hive غير موجود” يعتبر **قديم وغير صحيح**.
+
+### media_kit runtime dependency
+
+- تشغيل الفيديو على Android يعتمد على `media_kit_libs_video` (libmpv)  
+  وقد يتطلب تنزيل artifacts وقت build في بعض البيئات (شبكة).
+
+### Developer tooling
+
+- تم إضافة شاشة dev لاختبار الداونلودر: route `'/dev/download-harness'` (Debug فقط).
+
+> **Note:** لتفاصيل شاملة عن بنية المشروع و DI و build matrix، اعتبر `BLUEPRINT.md` هو المرجع الأساسي، واعتبر هذا الملف PRD/UX + تفاصيل فيديو بلاير.
 
 ---
 

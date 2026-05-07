@@ -1,16 +1,17 @@
 import 'package:flutter/foundation.dart';
+import '../../core/downloader_log.dart';
 import '../../domain/services/merge_service.dart';
 import '../../domain/services/storage_service.dart';
 
 /// Orchestrates the DASH merge pipeline after both streams complete.
 class MergeStreamsUseCase {
-  final MergeService   _merger;
+  final MergeService _merger;
   final StorageService _storage;
 
   MergeStreamsUseCase({
-    required MergeService   merger,
+    required MergeService merger,
     required StorageService storage,
-  })  : _merger  = merger,
+  })  : _merger = merger,
         _storage = storage;
 
   Future<String> call({
@@ -20,9 +21,10 @@ class MergeStreamsUseCase {
     required String extension,
   }) async {
     // 1. Sanitize filename
-    final safeTitle = title
-        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
-        .substring(0, title.length.clamp(0, 100));
+    final sanitizedTitle = title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    final safeTitle = sanitizedTitle.length > 100
+        ? sanitizedTitle.substring(0, 100)
+        : sanitizedTitle;
 
     // 2. Resolve final output path
     final outputPath = await _storage.resolveOutputPath(
@@ -32,9 +34,10 @@ class MergeStreamsUseCase {
 
     try {
       // 3. Trigger FFmpeg merge
+      DownloaderLog.merge('Merging DASH streams into $outputPath');
       final result = await _merger.mergeVideoAudio(
-        videoPath:  videoTempPath,
-        audioPath:  audioTempPath,
+        videoPath: videoTempPath,
+        audioPath: audioTempPath,
         outputPath: outputPath,
       );
 

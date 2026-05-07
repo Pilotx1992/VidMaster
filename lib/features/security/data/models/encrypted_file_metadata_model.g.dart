@@ -2,11 +2,8 @@
 
 part of 'encrypted_file_metadata_model.dart';
 
-// **************************************************************************
-// TypeAdapterGenerator
-// **************************************************************************
-
-class EncryptedFileMetadataModelAdapter extends TypeAdapter<EncryptedFileMetadataModel> {
+class EncryptedFileMetadataModelAdapter
+    extends TypeAdapter<EncryptedFileMetadataModel> {
   @override
   final int typeId = 0;
 
@@ -14,7 +11,7 @@ class EncryptedFileMetadataModelAdapter extends TypeAdapter<EncryptedFileMetadat
   EncryptedFileMetadataModel read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+      for (var i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return EncryptedFileMetadataModel(
       id: fields[0] as String,

@@ -1,23 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vidmaster/core/widgets/main_shell.dart';
 import 'package:vidmaster/features/video_player/presentation/screens/video_library_screen.dart';
 import 'package:vidmaster/features/music_player/presentation/screens/music_library_screen.dart';
 import 'package:vidmaster/features/downloader/presentation/screens/downloads_screen.dart';
 import 'package:vidmaster/features/downloader/presentation/screens/video_browser_screen.dart';
+import 'package:vidmaster/features/downloader/presentation/screens/download_harness_screen.dart';
 import 'package:vidmaster/features/settings/presentation/screens/settings_screen.dart';
 import 'package:vidmaster/features/security/presentation/screens/lock_screen.dart';
 import 'package:vidmaster/features/security/presentation/screens/vault_screen.dart';
+import 'package:vidmaster/features/security/presentation/providers/auth_provider.dart';
 import 'package:vidmaster/features/music_player/presentation/screens/now_playing_screen.dart';
 import 'package:vidmaster/features/music_player/presentation/screens/equalizer_screen.dart';
+import 'package:vidmaster/features/music_player/presentation/screens/playlists_screen.dart';
 import 'package:vidmaster/features/video_player/presentation/screens/video_player_screen.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:vidmaster/features/music_player/domain/entities/audio_track_entity.dart';
 import 'package:vidmaster/features/video_player/domain/entities/video_file.dart';
 
+class NowPlayingArgs {
+  final AudioTrackEntity track;
+  final List<AudioTrackEntity> queue;
+  final int queueIndex;
+
+  const NowPlayingArgs({
+    required this.track,
+    required this.queue,
+    required this.queueIndex,
+  });
+}
+
 class AppRoutes {
   static const videos = '/videos';
   static const music = '/music';
+  static const playlists = '/playlists';
   static const downloads = '/downloads';
   static const videoBrowser = '/video-browser';
   static const settings = '/settings';
@@ -26,6 +44,7 @@ class AppRoutes {
   static const nowPlaying = '/now-playing';
   static const player = '/player';
   static const equalizer = '/equalizer';
+  static const devDownloadHarness = '/dev/download-harness';
 }
 
 class AppRouter {
@@ -44,6 +63,10 @@ class AppRouter {
             builder: (context, state) => const MusicLibraryScreen(),
           ),
           GoRoute(
+            path: '/playlists',
+            builder: (context, state) => const PlaylistsScreen(),
+          ),
+          GoRoute(
             path: '/downloads',
             builder: (context, state) => const DownloadsScreen(),
           ),
@@ -57,16 +80,25 @@ class AppRouter {
           ),
           GoRoute(
             path: '/lock',
-            builder: (context, state) => const LockScreen(),
+            builder: (context, state) => LockScreen(
+              redirectPath: state.uri.queryParameters['redirect'],
+            ),
           ),
           GoRoute(
             path: '/vault',
-            builder: (context, state) => const VaultScreen(),
+            builder: (context, state) => const _VaultGate(),
           ),
           GoRoute(
             path: '/now-playing',
             builder: (context, state) {
               final extra = state.extra;
+              if (extra is NowPlayingArgs) {
+                return NowPlayingScreen(
+                  track: extra.track,
+                  queue: extra.queue,
+                  queueIndex: extra.queueIndex,
+                );
+              }
               if (extra is Map<String, dynamic>) {
                 try {
                   return NowPlayingScreen(
@@ -75,10 +107,12 @@ class AppRouter {
                     queueIndex: extra['queueIndex'] as int,
                   );
                 } catch (e) {
-                  return const _ErrorScreen(message: 'Invalid arguments for Now Playing');
+                  return const _ErrorScreen(
+                      message: 'Invalid arguments for Now Playing');
                 }
               }
-              return const _ErrorScreen(message: 'Missing arguments for Now Playing');
+              return const _ErrorScreen(
+                  message: 'Missing arguments for Now Playing');
             },
           ),
           GoRoute(
@@ -102,14 +136,50 @@ class AppRouter {
               );
               return VideoPlayerScreen(args: args);
             } catch (e) {
-              return const _ErrorScreen(message: 'Invalid video player arguments');
+              return const _ErrorScreen(
+                  message: 'Invalid video player arguments');
             }
           }
           return const _ErrorScreen(message: 'Missing video player arguments');
         },
       ),
+      if (kDebugMode)
+        GoRoute(
+          path: AppRoutes.devDownloadHarness,
+          builder: (context, state) => const DownloadHarnessScreen(),
+        ),
     ],
   );
+}
+
+class _VaultGate extends ConsumerWidget {
+  const _VaultGate();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(appAuthProvider);
+
+    if (auth.screenStatus == AuthScreenStatus.checking) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (auth.screenStatus != AuthScreenStatus.authenticated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.go(
+            '${AppRoutes.lock}?redirect=${Uri.encodeComponent(AppRoutes.vault)}',
+          );
+        }
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return const VaultScreen();
+  }
 }
 
 class _ErrorScreen extends StatelessWidget {

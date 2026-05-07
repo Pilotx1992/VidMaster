@@ -91,7 +91,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                 ),
               ),
               const Text(
-                'AES-256-GCM Encrypted',
+                'Encrypted private storage',
                 style: TextStyle(color: Colors.white54, fontSize: 12),
               ),
             ],
@@ -106,7 +106,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock_outline, size: 80, color: Colors.white.withValues(alpha: 0.1)),
+          Icon(Icons.lock_outline,
+              size: 80, color: Colors.white.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
           const Text(
             'Your vault is empty',
@@ -120,7 +121,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF9A825),
               foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ],
@@ -148,7 +150,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           const SizedBox(
             width: 24,
             height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF9A825)),
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: Color(0xFFF9A825)),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -156,7 +159,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Processing file...', style: TextStyle(color: Colors.white)),
+                const Text('Processing file...',
+                    style: TextStyle(color: Colors.white)),
                 const SizedBox(height: 4),
                 LinearProgressIndicator(
                   value: state.operationProgress,
@@ -169,7 +173,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           const SizedBox(width: 8),
           Text(
             '${(state.operationProgress! * 100).toInt()}%',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -184,12 +189,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
 
     if (result != null && result.files.single.path != null) {
       final path = result.files.single.path!;
-      
+
       // Request PIN if not authenticated or session expired.
       // For this MVP, we assume the user just unlocked the vault to enter this screen.
       // In a real app, we'd prompt for PIN again or use the cached PIN if session is active.
       // We'll use a dialog to ask for the PIN as required by VaultRepository.
-      
+
       if (!context.mounted) return;
       final pin = await _showPinDialog(context);
       if (pin != null) {
@@ -263,7 +268,8 @@ class _VaultItemTile extends ConsumerWidget {
           item.originalFileName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
         ),
         subtitle: Text(
           '$sizeStr • $dateStr',
@@ -278,7 +284,8 @@ class _VaultItemTile extends ConsumerWidget {
               value: 'restore',
               child: ListTile(
                 leading: Icon(Icons.unarchive, color: Color(0xFFF9A825)),
-                title: Text('Restore to Library', style: TextStyle(color: Colors.white)),
+                title: Text('Restore to Library',
+                    style: TextStyle(color: Colors.white)),
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -286,7 +293,8 @@ class _VaultItemTile extends ConsumerWidget {
               value: 'delete',
               child: ListTile(
                 leading: Icon(Icons.delete_forever, color: Colors.redAccent),
-                title: Text('Delete Permanently', style: TextStyle(color: Colors.white)),
+                title: Text('Delete Permanently',
+                    style: TextStyle(color: Colors.white)),
                 contentPadding: EdgeInsets.zero,
               ),
             ),
@@ -307,7 +315,8 @@ class _VaultItemTile extends ConsumerWidget {
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xFF1C2B3A),
-          title: const Text('Delete Permanently?', style: TextStyle(color: Colors.white)),
+          title: const Text('Delete Permanently?',
+              style: TextStyle(color: Colors.white)),
           content: const Text(
             'This file will be completely destroyed and cannot be recovered. Are you sure?',
             style: TextStyle(color: Colors.white70),
@@ -337,7 +346,8 @@ class _VaultItemTile extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1C2B3A),
-        title: const Text('Enter PIN to Decrypt', style: TextStyle(color: Colors.white)),
+        title: const Text('Enter PIN to Decrypt',
+            style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: controller,
           obscureText: true,

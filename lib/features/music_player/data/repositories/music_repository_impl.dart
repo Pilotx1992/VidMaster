@@ -1,12 +1,14 @@
 import 'package:dartz/dartz.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/audio_track_entity.dart';
-import 'package:on_audio_query/on_audio_query.dart';
+import 'package:on_audio_query/on_audio_query.dart' as audio_query;
 import '../../domain/entities/playlist_entity.dart';
 import '../../domain/repositories/music_repository.dart';
 import '../datasources/music_local_data_source.dart';
 import '../models/audio_track_model.dart';
+import '../models/playlist_model.dart';
 
 /// Production implementation of [MusicRepository].
 ///
@@ -14,7 +16,7 @@ import '../models/audio_track_model.dart';
 /// models to Domain entities with strict error boundaries.
 class MusicRepositoryImpl implements MusicRepository {
   final MusicLocalDataSource localDataSource;
-  final OnAudioQuery audioQuery;
+  final audio_query.OnAudioQuery audioQuery;
 
   MusicRepositoryImpl({
     required this.localDataSource,
@@ -38,7 +40,7 @@ class MusicRepositoryImpl implements MusicRepository {
 
       for (final song in songs) {
         if (song.isMusic != true) continue;
-        
+
         // Skip if already exists (avoids overwriting playCount, etc.)
         final existing = await localDataSource.searchTracks(song.title);
         if (existing.any((t) => t.filePath == song.data)) continue;
@@ -79,7 +81,8 @@ class MusicRepositoryImpl implements MusicRepository {
       final entities = models.map((m) => m.toDomain()).toList();
       return Right(entities);
     } catch (e) {
-      return Left(CacheFailure('Failed to fetch album tracks: ${e.toString()}'));
+      return Left(
+          CacheFailure('Failed to fetch album tracks: ${e.toString()}'));
     }
   }
 
@@ -91,7 +94,8 @@ class MusicRepositoryImpl implements MusicRepository {
       final entities = models.map((m) => m.toDomain()).toList();
       return Right(entities);
     } catch (e) {
-      return Left(CacheFailure('Failed to fetch artist tracks: ${e.toString()}'));
+      return Left(
+          CacheFailure('Failed to fetch artist tracks: ${e.toString()}'));
     }
   }
 
@@ -153,7 +157,8 @@ class MusicRepositoryImpl implements MusicRepository {
       final entities = models.map((m) => m.toDomain()).toList();
       return Right(entities);
     } catch (e) {
-      return Left(CacheFailure('Failed to fetch recent tracks: ${e.toString()}'));
+      return Left(
+          CacheFailure('Failed to fetch recent tracks: ${e.toString()}'));
     }
   }
 
@@ -199,17 +204,33 @@ class MusicRepositoryImpl implements MusicRepository {
   }
 
   // ─── Playlists ─────────────────────────────────────────────────────────
-  // Note: PlaylistModel was not requested in the DB setup constraint, so 
-  // these methods return an unimplemented CacheFailure for now.
 
   @override
   Future<Either<Failure, List<PlaylistEntity>>> getAllPlaylists() async {
-    return const Left(CacheFailure('Playlists not implemented in local DB yet'));
+    try {
+      final models = await localDataSource.getAllPlaylists();
+      return Right(models.map((m) => m.toDomain()).toList());
+    } catch (e) {
+      return Left(CacheFailure('Failed to fetch playlists: ${e.toString()}'));
+    }
   }
 
   @override
   Future<Either<Failure, PlaylistEntity>> createPlaylist(String name) async {
-    return const Left(CacheFailure('Playlists not implemented in local DB yet'));
+    try {
+      final now = DateTime.now();
+      final model = PlaylistModel(
+        playlistId: const Uuid().v4(),
+        name: name.trim(),
+        trackIds: const [],
+        createdAt: now,
+        updatedAt: now,
+      );
+      await localDataSource.savePlaylist(model);
+      return Right(model.toDomain());
+    } catch (e) {
+      return Left(CacheFailure('Failed to create playlist: ${e.toString()}'));
+    }
   }
 
   @override
@@ -217,7 +238,21 @@ class MusicRepositoryImpl implements MusicRepository {
     required String playlistId,
     required String trackId,
   }) async {
-    return const Left(CacheFailure('Playlists not implemented in local DB yet'));
+    try {
+      final playlist = await localDataSource.getPlaylistById(playlistId);
+      if (playlist == null) return Left(FileNotFoundFailure(playlistId));
+
+      if (!playlist.trackIds.contains(trackId)) {
+        playlist.trackIds = [...playlist.trackIds, trackId];
+        playlist.updatedAt = DateTime.now();
+        await localDataSource.savePlaylist(playlist);
+      }
+
+      return Right(playlist.toDomain());
+    } catch (e) {
+      return Left(
+          CacheFailure('Failed to add track to playlist: ${e.toString()}'));
+    }
   }
 
   @override
@@ -225,12 +260,31 @@ class MusicRepositoryImpl implements MusicRepository {
     required String playlistId,
     required String trackId,
   }) async {
-    return const Left(CacheFailure('Playlists not implemented in local DB yet'));
+    try {
+      final playlist = await localDataSource.getPlaylistById(playlistId);
+      if (playlist == null) return Left(FileNotFoundFailure(playlistId));
+
+      playlist.trackIds =
+          playlist.trackIds.where((id) => id != trackId).toList();
+      playlist.updatedAt = DateTime.now();
+      await localDataSource.savePlaylist(playlist);
+
+      return Right(playlist.toDomain());
+    } catch (e) {
+      return Left(CacheFailure(
+          'Failed to remove track from playlist: ${e.toString()}'));
+    }
   }
 
   @override
   Future<Either<Failure, void>> deletePlaylist(String playlistId) async {
-    return const Left(CacheFailure('Playlists not implemented in local DB yet'));
+    try {
+      final deleted = await localDataSource.deletePlaylist(playlistId);
+      if (!deleted) return Left(FileNotFoundFailure(playlistId));
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure('Failed to delete playlist: ${e.toString()}'));
+    }
   }
 
   @override
@@ -238,12 +292,45 @@ class MusicRepositoryImpl implements MusicRepository {
     required String playlistId,
     required String newName,
   }) async {
-    return const Left(CacheFailure('Playlists not implemented in local DB yet'));
+    try {
+      final playlist = await localDataSource.getPlaylistById(playlistId);
+      if (playlist == null) return Left(FileNotFoundFailure(playlistId));
+
+      playlist.name = newName.trim();
+      playlist.updatedAt = DateTime.now();
+      await localDataSource.savePlaylist(playlist);
+
+      return Right(playlist.toDomain());
+    } catch (e) {
+      return Left(CacheFailure('Failed to rename playlist: ${e.toString()}'));
+    }
   }
 
   @override
   Future<Either<Failure, List<AudioTrackEntity>>> getPlaylistTracks(
       String playlistId) async {
-    return const Left(CacheFailure('Playlists not implemented in local DB yet'));
+    try {
+      final playlist = await localDataSource.getPlaylistById(playlistId);
+      if (playlist == null) return Left(FileNotFoundFailure(playlistId));
+
+      final allTracks = await localDataSource.getAllTracks();
+      final byId = <String, AudioTrackEntity>{};
+      for (final model in allTracks) {
+        final entity = model.toDomain();
+        byId[entity.id] = entity;
+        byId[entity.filePath] = entity;
+      }
+
+      final tracks = <AudioTrackEntity>[];
+      for (final id in playlist.trackIds) {
+        final track = byId[id];
+        if (track != null) tracks.add(track);
+      }
+
+      return Right(tracks);
+    } catch (e) {
+      return Left(
+          CacheFailure('Failed to fetch playlist tracks: ${e.toString()}'));
+    }
   }
 }

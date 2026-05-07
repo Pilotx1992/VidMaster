@@ -34,17 +34,16 @@ class LinkParser {
     if (lower.contains('youtube.com') || lower.contains('youtu.be')) {
       return VideoPlatform.youtube;
     }
-    if (lower.contains('instagram.com'))   return VideoPlatform.instagram;
+    if (lower.contains('instagram.com')) return VideoPlatform.instagram;
     if (lower.contains('facebook.com') || lower.contains('fb.watch')) {
       return VideoPlatform.facebook;
     }
-    if (lower.contains('tiktok.com'))      return VideoPlatform.tiktok;
+    if (lower.contains('tiktok.com')) return VideoPlatform.tiktok;
     if (lower.contains('twitter.com') || lower.contains('x.com')) {
       return VideoPlatform.twitter;
     }
-    if (lower.contains('vimeo.com'))       return VideoPlatform.vimeo;
+    if (lower.contains('vimeo.com')) return VideoPlatform.vimeo;
     if (lower.contains('dailymotion.com')) return VideoPlatform.dailymotion;
-    if (lower.contains('twitch.tv'))       return VideoPlatform.twitch;
     return VideoPlatform.unknown;
   }
 
@@ -63,5 +62,46 @@ class LinkParser {
     } catch (_) {
       return url;
     }
+  }
+
+  static const videoExtensions = {
+    'mp4',
+    'm4v',
+    'mkv',
+    'webm',
+    'mov',
+    'avi',
+  };
+
+  static const audioExtensions = {
+    'mp3',
+    'm4a',
+    'aac',
+    'ogg',
+    'opus',
+    'flac',
+    'wav',
+  };
+
+  static bool isDirectMediaUrl(String url) {
+    try {
+      final uri = Uri.parse(url);
+      if (!uri.hasScheme || uri.host.isEmpty) return false;
+      return extensionFromUrl(url) != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static String? extensionFromUrl(String url) {
+    final path = Uri.parse(url).path.toLowerCase();
+    final segment = path.split('/').last;
+    final dot = segment.lastIndexOf('.');
+    if (dot < 0 || dot == segment.length - 1) return null;
+    final ext = segment.substring(dot + 1);
+    if (videoExtensions.contains(ext) || audioExtensions.contains(ext)) {
+      return ext;
+    }
+    return null;
   }
 }

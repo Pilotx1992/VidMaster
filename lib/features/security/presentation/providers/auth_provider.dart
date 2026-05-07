@@ -50,19 +50,19 @@ class AppAuthState {
 class AppAuthNotifier extends StateNotifier<AppAuthState> {
   final IsPinSet _isPinSet;
   final SetupPin _setupPin;
-  final ValidatePin _validatePin;
+  final AuthenticateVaultUser _authenticateVaultUser;
   final AuthenticateWithBiometric _biometric;
   final GetAuthState _getAuthState;
 
   AppAuthNotifier({
     required IsPinSet isPinSet,
     required SetupPin setupPin,
-    required ValidatePin validatePin,
+    required AuthenticateVaultUser authenticateVaultUser,
     required AuthenticateWithBiometric biometric,
     required GetAuthState getAuthState,
   })  : _isPinSet = isPinSet,
         _setupPin = setupPin,
-        _validatePin = validatePin,
+        _authenticateVaultUser = authenticateVaultUser,
         _biometric = biometric,
         _getAuthState = getAuthState,
         super(const AppAuthState()) {
@@ -114,7 +114,9 @@ class AppAuthNotifier extends StateNotifier<AppAuthState> {
 
   Future<void> authenticateWithPin(String pin) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    final result = await _validatePin(ValidatePinParams(pin));
+    final result = await _authenticateVaultUser(
+      AuthenticateVaultUserParams(inputPin: pin),
+    );
     result.fold(
       (f) => state = state.copyWith(isLoading: false, errorMessage: f.message),
       (_) => state = state.copyWith(
@@ -157,7 +159,7 @@ final appAuthProvider =
   return AppAuthNotifier(
     isPinSet: ref.watch(isPinSetProvider),
     setupPin: ref.watch(setupPinProvider),
-    validatePin: ref.watch(validatePinProvider),
+    authenticateVaultUser: ref.watch(authenticateVaultUserProvider),
     biometric: ref.watch(authenticateWithBiometricProvider),
     getAuthState: ref.watch(getAuthStateProvider),
   );

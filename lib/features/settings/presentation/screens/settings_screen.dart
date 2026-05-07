@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../providers/settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -143,6 +145,18 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
           const Divider(),
+
+          if (kDebugMode) ...[
+            _buildSectionHeader(context, 'Developer'),
+            ListTile(
+              leading: const Icon(Icons.developer_mode),
+              title: const Text('Download Harness'),
+              subtitle: const Text('Stress-test downloader lifecycle'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push(AppRoutes.devDownloadHarness),
+            ),
+            const Divider(),
+          ],
 
           // ── Security (Phase 5) ──────────────────────────────────────────
           _buildSectionHeader(context, 'Security'),

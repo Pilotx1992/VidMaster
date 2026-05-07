@@ -13,69 +13,120 @@ enum VideoLibraryStatus { initial, loading, loaded, error }
 
 enum VideoSortOrder { name, date, size, duration }
 
+enum VideoLibraryTab { all, folders, recent, favorites }
+
 class VideoLibraryState {
   final VideoLibraryStatus status;
   final List<VideoEntity> videos;
+  final int totalBytes;
   final List<String> folders;
   final List<VideoEntity> recentlyPlayed;
   final List<VideoEntity> favorites;
   final String? errorMessage;
+  final bool isSearchMode;
   final String searchQuery;
   final VideoSortOrder sortOrder;
+  final bool sortAscending;
   final bool isGridView;
+  final VideoLibraryTab activeTab;
+  /// When [activeTab] is [VideoLibraryTab.folders], filters by folder name; null = folder picker root.
+  final String? selectedFolderName;
 
   const VideoLibraryState({
     this.status = VideoLibraryStatus.initial,
     this.videos = const [],
+    this.totalBytes = 0,
     this.folders = const [],
     this.recentlyPlayed = const [],
     this.favorites = const [],
     this.errorMessage,
+    this.isSearchMode = false,
     this.searchQuery = '',
-    this.sortOrder = VideoSortOrder.name,
-    this.isGridView = true,
+    this.sortOrder = VideoSortOrder.date,
+    this.sortAscending = false, // new → old
+    this.isGridView = false, // list view by default
+    this.activeTab = VideoLibraryTab.all,
+    this.selectedFolderName,
   });
 
-  List<VideoEntity> get displayVideos {
-    var list = searchQuery.isEmpty
-        ? videos
-        : videos
-            .where((v) =>
-                v.fileName.toLowerCase().contains(searchQuery.toLowerCase()))
-            .toList();
+  /// Base list for the current tab (no search/sort yet). Not used for folders root picker.
+  List<VideoEntity> get tabVideos {
+    switch (activeTab) {
+      case VideoLibraryTab.all:
+        return videos;
+      case VideoLibraryTab.recent:
+        return recentlyPlayed;
+      case VideoLibraryTab.favorites:
+        return favorites;
+      case VideoLibraryTab.folders:
+        if (selectedFolderName == null) return const [];
+        return videos.where((v) => v.folderName == selectedFolderName).toList();
+    }
+  }
 
-    return switch (sortOrder) {
-      VideoSortOrder.name => list..sort((a, b) => a.fileName.compareTo(b.fileName)),
-      VideoSortOrder.date => list..sort((a, b) => (b.lastPlayedAt ?? DateTime(0)).compareTo(a.lastPlayedAt ?? DateTime(0))),
-      VideoSortOrder.size => list..sort((a, b) => b.fileSizeBytes.compareTo(a.fileSizeBytes)),
-      VideoSortOrder.duration => list..sort((a, b) => (b.durationMs ?? 0).compareTo(a.durationMs ?? 0)),
-    };
+  List<VideoEntity> get displayVideos {
+    var list = List<VideoEntity>.from(tabVideos);
+
+    final q = searchQuery.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      list = list
+          .where((v) =>
+              v.fileName.toLowerCase().contains(q) ||
+              v.folderName.toLowerCase().contains(q) ||
+              v.filePath.toLowerCase().contains(q))
+          .toList();
+    }
+
+    int cmp(VideoEntity a, VideoEntity b) => switch (sortOrder) {
+          VideoSortOrder.name => a.fileName.compareTo(b.fileName),
+          VideoSortOrder.date => (a.lastPlayedAt ?? a.fileModifiedAt ?? DateTime(0))
+              .compareTo(b.lastPlayedAt ?? b.fileModifiedAt ?? DateTime(0)),
+          VideoSortOrder.size => a.fileSizeBytes.compareTo(b.fileSizeBytes),
+          VideoSortOrder.duration => (a.durationMs ?? 0).compareTo(b.durationMs ?? 0),
+        };
+
+    list.sort((a, b) => sortAscending ? cmp(a, b) : cmp(b, a));
+    return list;
   }
 
   bool get hasVideos => videos.isNotEmpty;
-  bool get isSearching => searchQuery.isNotEmpty;
+  bool get isSearching => isSearchMode; // legacy name used in UI
+  bool get hasSearchQuery => searchQuery.trim().isNotEmpty;
 
   VideoLibraryState copyWith({
     VideoLibraryStatus? status,
     List<VideoEntity>? videos,
+    int? totalBytes,
     List<String>? folders,
     List<VideoEntity>? recentlyPlayed,
     List<VideoEntity>? favorites,
     String? errorMessage,
+    bool? isSearchMode,
     String? searchQuery,
     VideoSortOrder? sortOrder,
+    bool? sortAscending,
     bool? isGridView,
+    VideoLibraryTab? activeTab,
+    String? selectedFolderName,
+    bool clearSelectedFolder = false,
   }) =>
       VideoLibraryState(
         status: status ?? this.status,
         videos: videos ?? this.videos,
+        totalBytes: totalBytes ?? this.totalBytes,
         folders: folders ?? this.folders,
         recentlyPlayed: recentlyPlayed ?? this.recentlyPlayed,
         favorites: favorites ?? this.favorites,
         errorMessage: errorMessage ?? this.errorMessage,
+        isSearchMode: isSearchMode ?? this.isSearchMode,
         searchQuery: searchQuery ?? this.searchQuery,
         sortOrder: sortOrder ?? this.sortOrder,
+        sortAscending: sortAscending ?? this.sortAscending,
         isGridView: isGridView ?? this.isGridView,
+        activeTab: activeTab ?? this.activeTab,
+        selectedFolderName: clearSelectedFolder
+            ? null
+            : (selectedFolderName ?? this.selectedFolderName),
       );
 }
 
@@ -167,9 +218,14 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
       return;
     }
 
+    final loadedVideos = videosResult.fold<List<VideoEntity>>(
+      (_) => const [],
+      (r) => r,
+    );
     state = state.copyWith(
       status: VideoLibraryStatus.loaded,
-      videos: videosResult.fold((_) => [], (r) => r),
+      videos: loadedVideos,
+      totalBytes: loadedVideos.fold<int>(0, (sum, v) => sum + v.fileSizeBytes),
       folders: foldersResult.fold((_) => [], (r) => r),
       recentlyPlayed: recentResult.fold((_) => [], (r) => r),
       favorites: favResult.fold((_) => [], (r) => r),
@@ -180,24 +236,71 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
   void setSearchQuery(String query) =>
       state = state.copyWith(searchQuery: query);
 
-  void clearSearch() => state = state.copyWith(searchQuery: '');
+  void enterSearch() => state = state.copyWith(isSearchMode: true);
+
+  void exitSearch() =>
+      state = state.copyWith(isSearchMode: false, searchQuery: '');
+
+  void clearSearchQuery() => state = state.copyWith(searchQuery: '');
+
+  void setActiveTab(VideoLibraryTab tab) {
+    state = state.copyWith(
+      activeTab: tab,
+      clearSelectedFolder: true,
+    );
+  }
+
+  void openFolder(String folderName) {
+    state = state.copyWith(
+      activeTab: VideoLibraryTab.folders,
+      selectedFolderName: folderName,
+    );
+  }
+
+  void exitFolderBrowse() {
+    state = state.copyWith(clearSelectedFolder: true);
+  }
 
   void setSortOrder(VideoSortOrder order) =>
       state = state.copyWith(sortOrder: order);
+
+  void setSortAscending(bool ascending) =>
+      state = state.copyWith(sortAscending: ascending);
+
+  void updateSorting({
+    required VideoSortOrder order,
+    required bool ascending,
+  }) =>
+      state = state.copyWith(sortOrder: order, sortAscending: ascending);
 
   void toggleView() =>
       state = state.copyWith(isGridView: !state.isGridView);
 
   Future<void> toggleFavorite(String videoPath) async {
     await _toggleFavorite(ToggleFavouriteParams(videoPath: videoPath));
-    // Optimistic update.
+
+    VideoEntity? updatedVideo;
     final updated = state.videos.map((v) {
-      if (v.filePath == videoPath) return v.copyWith(isFavourite: !v.isFavourite);
-      return v;
+      if (v.filePath != videoPath) return v;
+      updatedVideo = v.copyWith(isFavourite: !v.isFavourite);
+      return updatedVideo!;
     }).toList();
+
+    if (updatedVideo == null) return;
+
+    final newFav = updatedVideo!.isFavourite;
+    final recent = state.recentlyPlayed
+        .map(
+          (v) =>
+              v.filePath == videoPath ? v.copyWith(isFavourite: newFav) : v,
+        )
+        .toList();
+
     state = state.copyWith(
       videos: updated,
-      favorites: updated.where((v) => v.isFavorite).toList(),
+      totalBytes: updated.fold<int>(0, (sum, v) => sum + v.fileSizeBytes),
+      recentlyPlayed: recent,
+      favorites: updated.where((v) => v.isFavourite).toList(),
     );
   }
 

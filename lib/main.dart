@@ -22,7 +22,17 @@ Future<void> main() async {
 
   // ⚠️ REQUIRED: Must be called before creating any Player instance.
   // Without this, media_kit will crash with a fatal native error.
-  MediaKit.ensureInitialized();
+  try {
+    MediaKit.ensureInitialized();
+  } catch (e, st) {
+    // In debug we keep the app running to surface UI & logs even if libmpv artifacts are missing.
+    if (kDebugMode) {
+      debugPrint('media_kit init failed: $e');
+      debugPrintStack(stackTrace: st);
+    } else {
+      rethrow;
+    }
+  }
 
   // Production security: disable ignoreSsl and use kDebugMode for debug flag
   await FlutterDownloader.initialize(
@@ -88,6 +98,8 @@ class VidMasterApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    final textDirection =
+        settings.locale.toLowerCase().startsWith('ar') ? TextDirection.rtl : TextDirection.ltr;
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
@@ -99,11 +111,14 @@ class VidMasterApp extends ConsumerWidget {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) {
-        return Stack(
-          children: [
-            child!,
-            const MiniPlayerLayer(),
-          ],
+        return Directionality(
+          textDirection: textDirection,
+          child: Stack(
+            children: [
+              child!,
+              const MiniPlayerLayer(),
+            ],
+          ),
         );
       },
     );

@@ -38,10 +38,11 @@ class MusicPlayerState {
     this.errorMessage,
   });
 
-  double get progressFraction =>
-      duration.inMilliseconds == 0
-          ? 0.0
-          : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
+  double get progressFraction => duration.inMilliseconds == 0
+      ? 0.0
+      : (position.inMilliseconds / duration.inMilliseconds)
+          .clamp(0.0, 1.0)
+          .toDouble();
 
   bool get hasNext => currentIndex < queue.length - 1;
   bool get hasPrevious => currentIndex > 0;
@@ -60,10 +61,12 @@ class MusicPlayerState {
     double? volume,
     Duration? sleepTimerRemaining,
     String? errorMessage,
+    bool clearCurrentTrack = false,
     bool clearSleepTimer = false,
   }) =>
       MusicPlayerState(
-        currentTrack: currentTrack ?? this.currentTrack,
+        currentTrack:
+            clearCurrentTrack ? null : (currentTrack ?? this.currentTrack),
         queue: queue ?? this.queue,
         currentIndex: currentIndex ?? this.currentIndex,
         position: position ?? this.position,
@@ -73,13 +76,15 @@ class MusicPlayerState {
         repeatMode: repeatMode ?? this.repeatMode,
         shuffleMode: shuffleMode ?? this.shuffleMode,
         volume: volume ?? this.volume,
-        sleepTimerRemaining:
-            clearSleepTimer ? null : (sleepTimerRemaining ?? this.sleepTimerRemaining),
+        sleepTimerRemaining: clearSleepTimer
+            ? null
+            : (sleepTimerRemaining ?? this.sleepTimerRemaining),
         errorMessage: errorMessage ?? this.errorMessage,
       );
 }
 
 enum RepeatMode { off, repeatOne, repeatAll }
+
 enum ShuffleMode { off, on }
 
 // ── Notifier ───────────────────────────────────────────────────────────────
@@ -95,6 +100,7 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
   StreamSubscription? _durationSub;
   StreamSubscription? _playingSub;
   StreamSubscription? _currentIndexSub;
+  bool _suppressIndexUpdates = false;
 
   MusicPlayerNotifier({
     required AudioPlayer player,
@@ -112,20 +118,21 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
       // Music playback is handled by the dedicated music handler
     });
 
-    _positionSub =
-        _player.positionStream.listen((p) => state = state.copyWith(position: p));
+    _positionSub = _player.positionStream
+        .listen((p) => state = state.copyWith(position: p));
 
-    _durationSub = _player.durationStream.listen(
-        (d) => state = state.copyWith(duration: d ?? Duration.zero));
+    _durationSub = _player.durationStream
+        .listen((d) => state = state.copyWith(duration: d ?? Duration.zero));
 
     _playingSub = _player.playingStream
         .listen((playing) => state = state.copyWith(isPlaying: playing));
 
     _currentIndexSub = _player.currentIndexStream.listen((index) async {
+      if (_suppressIndexUpdates) return;
       if (index == null || index >= state.queue.length) return;
-      
+
       final track = state.queue[index];
-      
+
       state = state.copyWith(currentTrack: track, currentIndex: index);
       _markAsPlayed(RecordMusicPlayParams(trackId: track.id));
       _updateMediaItem(track);
@@ -140,9 +147,7 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
   }) async {
     state = state.copyWith(isLoading: true, queue: tracks);
 
-    final sources = tracks
-        .map((t) => _createAudioSource(t.filePath))
-        .toList();
+    final sources = tracks.map((t) => _createAudioSource(t.filePath)).toList();
 
     await _player.setAudioSource(
       ConcatenatingAudioSource(children: sources),
@@ -165,6 +170,31 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
   Future<void> playPause() =>
       state.isPlaying ? _player.pause() : _player.play();
 
+  /// Stops playback and hides the mini player (clears current track + queue).
+  Future<void> stopAndClear() async {
+    _suppressIndexUpdates = true;
+    try {
+      await _player.stop();
+    } catch (_) {
+      // ignore
+    }
+    state = state.copyWith(
+      clearCurrentTrack: true,
+      queue: const [],
+      currentIndex: 0,
+      position: Duration.zero,
+      duration: Duration.zero,
+      isPlaying: false,
+      isLoading: false,
+      errorMessage: null,
+      clearSleepTimer: true,
+    );
+    // Allow streams to settle before accepting index updates again.
+    Future.delayed(const Duration(milliseconds: 200), () {
+      _suppressIndexUpdates = false;
+    });
+  }
+
   Future<void> next() => _player.seekToNext();
 
   Future<void> previous() async {
@@ -178,8 +208,9 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
   Future<void> seekTo(Duration position) => _player.seek(position);
 
   Future<void> setVolume(double v) async {
-    await _player.setVolume(v.clamp(0.0, 1.0));
-    state = state.copyWith(volume: v.clamp(0.0, 1.0));
+    final volume = v.clamp(0.0, 1.0).toDouble();
+    await _player.setVolume(volume);
+    state = state.copyWith(volume: volume);
   }
 
   // ── Modes ─────────────────────────────────────────────────────────────────
@@ -247,9 +278,8 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
       artist: track.artist,
       album: track.album,
       duration: Duration(milliseconds: track.durationMs),
-      artUri: track.albumArtPath != null
-          ? _safeFileUri(track.albumArtPath!)
-          : null,
+      artUri:
+          track.albumArtPath != null ? _safeFileUri(track.albumArtPath!) : null,
     ));
   }
 
@@ -271,7 +301,7 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
   Uri _safeFileUri(String path) {
     if (path.startsWith('http')) return Uri.parse(path);
     if (path.startsWith('file://')) return Uri.parse(path);
-    
+
     // Use File.uri which is generally safer as it handles platform specifics
     try {
       return Uri.file(path);

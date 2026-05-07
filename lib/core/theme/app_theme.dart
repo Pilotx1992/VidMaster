@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AppTheme {
-  static const Color primaryColor = Color(0xFF1565C0); // Deep Blue
-  static const Color secondaryColor = Color(0xFFF9A825); // Amber Gold
-  static const Color backgroundDark = Color(0xFF0D1B2A);
-  static const Color surfaceDark = Color(0xFF1C2B3A);
+  // Premium dark surfaces + gold accent (system font)
+  static const Color primaryColor = Color(0xFF111827); // near-black (header/bg anchor)
+  static const Color secondaryColor = Color(0xFFF9A825); // Amber Gold (accent)
+  static const Color backgroundDark = Color(0xFF0B0F14);
+  static const Color surfaceDark = Color(0xFF111827);
+  static const Color surfaceDark2 = Color(0xFF0F172A);
+  static const Color outlineDark = Color(0xFF253041);
   static const Color backgroundLight = Color(0xFFF5F7FA);
 
   static const Color onPrimary = Color(0xFFFFFFFF);
@@ -22,8 +26,22 @@ class AppTheme {
         ),
         scaffoldBackgroundColor: backgroundLight,
         appBarTheme: const AppBarTheme(
-          backgroundColor: primaryColor,
-          foregroundColor: onPrimary,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          iconTheme: IconThemeData(color: Colors.black),
+          actionsIconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
         ),
         cardTheme: CardThemeData(
           elevation: 4,
@@ -43,22 +61,63 @@ class AppTheme {
   static ThemeData get darkTheme => ThemeData(
         useMaterial3: true,
         colorScheme: const ColorScheme.dark(
-          primary: primaryColor,
-          onPrimary: onPrimary,
+          primary: secondaryColor,
+          onPrimary: Colors.black,
           secondary: secondaryColor,
+          onSecondary: Colors.black,
           surface: surfaceDark,
+          onSurface: onSurfaceDark,
+          outline: outlineDark,
         ),
         scaffoldBackgroundColor: backgroundDark,
         appBarTheme: const AppBarTheme(
-          backgroundColor: surfaceDark,
-          foregroundColor: onSurfaceDark,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          centerTitle: false,
+          iconTheme: IconThemeData(color: Colors.black),
+          actionsIconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+        ),
+        dividerTheme: const DividerThemeData(color: outlineDark, thickness: 1, space: 1),
+        iconTheme: const IconThemeData(color: Colors.white70),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: surfaceDark2,
+          hintStyle: const TextStyle(color: Colors.white38),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: outlineDark),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: outlineDark),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: secondaryColor),
+          ),
         ),
         cardTheme: CardThemeData(
-          elevation: 4,
-          color: surfaceDark,
+          elevation: 0,
+          color: surfaceDark2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+        ),
+        listTileTheme: const ListTileThemeData(
+          iconColor: Colors.white70,
+          textColor: Colors.white,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
@@ -66,6 +125,17 @@ class AppTheme {
               borderRadius: BorderRadius.circular(8),
             ),
           ),
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: backgroundDark,
+          indicatorColor: Color(0x26F9A825),
+          labelTextStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.w600)),
+        ),
+        tabBarTheme: const TabBarThemeData(
+          indicatorColor: secondaryColor,
+          dividerColor: outlineDark,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
         ),
       );
 }

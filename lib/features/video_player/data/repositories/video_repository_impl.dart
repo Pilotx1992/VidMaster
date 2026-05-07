@@ -1,5 +1,10 @@
 import 'package:dartz/dartz.dart';
+import 'dart:io';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../domain/entities/video_entity.dart';
@@ -95,7 +100,7 @@ class VideoRepositoryImpl implements VideoRepository {
   Future<Either<Failure, List<VideoEntity>>> getAllVideos() async {
     try {
       final models = await localDataSource.getAllVideos();
-      final entities = models.map((m) => m.toDomain()).toList();
+      final entities = models.map((m) => _withDeviceDateFallback(m.toDomain())).toList();
       return Right(entities);
     } catch (e) {
       return Left(CacheFailure('Failed to fetch videos: ${e.toString()}'));
@@ -107,7 +112,7 @@ class VideoRepositoryImpl implements VideoRepository {
       String folderPath) async {
     try {
       final models = await localDataSource.getVideosByFolder(folderPath);
-      final entities = models.map((m) => m.toDomain()).toList();
+      final entities = models.map((m) => _withDeviceDateFallback(m.toDomain())).toList();
       return Right(entities);
     } catch (e) {
       return Left(CacheFailure('Failed to fetch folder: ${e.toString()}'));
@@ -128,7 +133,7 @@ class VideoRepositoryImpl implements VideoRepository {
   Future<Either<Failure, List<VideoEntity>>> searchVideos(String query) async {
     try {
       final models = await localDataSource.searchVideos(query);
-      final entities = models.map((m) => m.toDomain()).toList();
+      final entities = models.map((m) => _withDeviceDateFallback(m.toDomain())).toList();
       return Right(entities);
     } catch (e) {
       return Left(CacheFailure('Failed to search videos: ${e.toString()}'));
@@ -179,10 +184,44 @@ class VideoRepositoryImpl implements VideoRepository {
 
   @override
   Future<Either<Failure, String>> generateThumbnail(String videoPath) async {
-    // Note: Thumbnail generation requires a hardware-specific service.
-    // In Clean Architecture, this should be delegated to a Device file service.
-    // Returning a failure here to indicate it's not implemented purely in DB layer.
-    return Left(ThumbnailFailure(videoPath));
+    try {
+      final model = await localDataSource.getVideoByPath(videoPath);
+      if (model == null) return Left(FileNotFoundFailure(videoPath));
+
+      // If cached thumbnail exists on disk, return it.
+      final existing = model.thumbnailPath;
+      if (existing != null && await File(existing).exists()) {
+        return Right(existing);
+      }
+
+      final cacheDir = await getTemporaryDirectory();
+      final thumbsDir = Directory('${cacheDir.path}/vidmaster_thumbs');
+      if (!await thumbsDir.exists()) {
+        await thumbsDir.create(recursive: true);
+      }
+
+      final key = sha1.convert(utf8.encode(videoPath)).toString();
+      final outPath = '${thumbsDir.path}/$key.jpg';
+
+      // Generate a single frame thumbnail (fast + good enough).
+      final generated = await VideoThumbnail.thumbnailFile(
+        video: videoPath,
+        thumbnailPath: thumbsDir.path,
+        imageFormat: ImageFormat.JPEG,
+        quality: 75,
+        // Keep it light; grid cards don't need huge images.
+        maxWidth: 512,
+      );
+
+      final finalPath = generated ?? (await File(outPath).exists() ? outPath : null);
+      if (finalPath == null) return Left(ThumbnailFailure(videoPath));
+
+      model.thumbnailPath = finalPath;
+      await localDataSource.saveVideo(model);
+      return Right(finalPath);
+    } catch (e) {
+      return Left(CacheFailure('Failed to generate thumbnail: ${e.toString()}'));
+    }
   }
 
   @override
@@ -211,7 +250,7 @@ class VideoRepositoryImpl implements VideoRepository {
   Future<Either<Failure, List<VideoEntity>>> getFavouriteVideos() async {
     try {
       final models = await localDataSource.getFavouriteVideos();
-      final entities = models.map((m) => m.toDomain()).toList();
+      final entities = models.map((m) => _withDeviceDateFallback(m.toDomain())).toList();
       return Right(entities);
     } catch (e) {
       return Left(CacheFailure('Failed to fetch favourites: ${e.toString()}'));
@@ -241,10 +280,22 @@ class VideoRepositoryImpl implements VideoRepository {
   }) async {
     try {
       final models = await localDataSource.getRecentlyPlayed(limit: limit);
-      final entities = models.map((m) => m.toDomain()).toList();
+      final entities = models.map((m) => _withDeviceDateFallback(m.toDomain())).toList();
       return Right(entities);
     } catch (e) {
       return Left(CacheFailure('Failed to fetch recent: ${e.toString()}'));
+    }
+  }
+
+  VideoEntity _withDeviceDateFallback(VideoEntity e) {
+    // The UI "Date" sort should behave like "date added/modified on device"
+    // for items that were never played (lastPlayedAt == null).
+    if (e.lastPlayedAt != null || e.fileModifiedAt != null) return e;
+    try {
+      final dt = File(e.filePath).lastModifiedSync();
+      return e.copyWith(fileModifiedAt: dt);
+    } catch (_) {
+      return e;
     }
   }
 }

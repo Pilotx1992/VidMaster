@@ -26,17 +26,37 @@ class DownloaderRemoteDataSource {
   /// `Content-Disposition` is absent.
   Future<DownloadUrlInfo> validateUrl(String url) async {
     try {
-      final response = await _dio.head<void>(
-        url,
-        options: Options(
-          // Follow redirects to reach the final resource.
-          followRedirects: true,
-          maxRedirects: 5,
-          // Short timeout for a HEAD — we only need headers.
-          receiveTimeout: const Duration(seconds: 15),
-          sendTimeout: const Duration(seconds: 10),
-        ),
-      );
+      Response<void> response;
+      try {
+        response = await _dio.head<void>(
+          url,
+          options: Options(
+            // Follow redirects to reach the final resource.
+            followRedirects: true,
+            maxRedirects: 5,
+            // Short timeout for a HEAD — we only need headers.
+            receiveTimeout: const Duration(seconds: 15),
+            sendTimeout: const Duration(seconds: 10),
+            validateStatus: (code) => code != null && code >= 200 && code < 400,
+          ),
+        );
+      } on DioException catch (e) {
+        // Some CDNs block HEAD and return 405. Fallback to a lightweight GET.
+        if (e.response?.statusCode != 405) rethrow;
+
+        response = await _dio.get<void>(
+          url,
+          options: Options(
+            followRedirects: true,
+            maxRedirects: 5,
+            receiveTimeout: const Duration(seconds: 20),
+            sendTimeout: const Duration(seconds: 10),
+            responseType: ResponseType.stream,
+            headers: const {'Range': 'bytes=0-0'},
+            validateStatus: (code) => code != null && code >= 200 && code < 400,
+          ),
+        );
+      }
 
       final headers = response.headers;
 
@@ -71,7 +91,7 @@ class DownloaderRemoteDataSource {
       );
     } on DioException catch (e) {
       throw ServerException(
-        message: e.message ?? 'HEAD request failed for $url',
+        message: e.message ?? 'URL validation request failed for $url',
         statusCode: e.response?.statusCode,
       );
     } catch (e) {

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import '../../domain/services/platform_brightness_service.dart';
 
 class AndroidBrightnessService implements PlatformBrightnessService {
-  static const MethodChannel _channel = MethodChannel('com.example.vidmaster/brightness');
+  static const MethodChannel _channel = MethodChannel('vidmaster/brightness');
 
   @override
   Future<double> getBrightness() async {

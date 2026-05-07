@@ -3,10 +3,6 @@ package com.vidmaster.app
 import android.app.PictureInPictureParams
 import android.os.Build
 import android.util.Rational
-import android.os.Handler
-import android.os.Looper
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -14,8 +10,8 @@ import com.ryanheise.audioservice.AudioServiceActivity
 class MainActivity : AudioServiceActivity() {
     private val PIP_CHANNEL = "vidmaster/pip"
     private val BRIGHTNESS_CHANNEL = "vidmaster/brightness"
-    private val YTDLP_CHANNEL = "com.vidmaster/ytdlp"
     private val STORAGE_CHANNEL = "vidmaster/storage"
+    private val YTDLP_CHANNEL = "com.vidmaster/ytdlp"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -27,41 +23,14 @@ class MainActivity : AudioServiceActivity() {
                     val path = getExternalFilesDir(null)
                     val stat = android.os.StatFs(path?.path)
                     val bytesAvailable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-                        stat.blockCountLong * stat.blockSizeLong
+                        stat.availableBlocksLong * stat.blockSizeLong
                     } else {
-                        stat.blockCount.toLong() * stat.blockSize.toLong()
+                        stat.availableBlocks.toLong() * stat.blockSize.toLong()
                     }
                     result.success(bytesAvailable)
                 } catch (e: Exception) {
                     result.error("STORAGE_ERROR", e.message, null)
                 }
-            } else {
-                result.notImplemented()
-            }
-        }
-
-        // Initialize Chaquopy
-        if (!Python.isStarted()) {
-            Python.start(AndroidPlatform(this))
-        }
-
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, YTDLP_CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "fetchMetadata") {
-                val url = call.arguments as String
-                Thread {
-                    try {
-                        val python = Python.getInstance()
-                        val module = python.getModule("ytdlp_bridge")
-                        val jsonResult = module.callAttr("fetch_metadata", url).toString()
-                        Handler(Looper.getMainLooper()).post {
-                            result.success(jsonResult)
-                        }
-                    } catch (e: Exception) {
-                        Handler(Looper.getMainLooper()).post {
-                            result.error("YTDLP_ERROR", e.message, null)
-                        }
-                    }
-                }.start()
             } else {
                 result.notImplemented()
             }
@@ -98,6 +67,38 @@ class MainActivity : AudioServiceActivity() {
                     result.success(null)
                 } else {
                     result.error("INVALID_ARGUMENT", "Brightness value is missing", null)
+                }
+            } else if (call.method == "getBrightness") {
+                val brightness = window.attributes.screenBrightness
+                result.success(if (brightness >= 0f) brightness.toDouble() else 0.5)
+            } else {
+                result.notImplemented()
+            }
+        }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, YTDLP_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "fetchMetadata") {
+                val url = call.arguments as? String
+                if (url.isNullOrBlank()) {
+                    result.error("INVALID_ARGUMENT", "URL is missing", null)
+                    return@setMethodCallHandler
+                }
+
+                try {
+                    val pythonClass = Class.forName("com.chaquo.python.Python")
+                    val python = pythonClass.getMethod("getInstance").invoke(null)
+                    val module = python.javaClass
+                        .getMethod("getModule", String::class.java)
+                        .invoke(python, "ytdlp_bridge")
+                    val callAttr = module.javaClass.methods.first {
+                        it.name == "callAttr" && it.parameterTypes.size == 2
+                    }
+                    val response = callAttr.invoke(module, "fetch_metadata", arrayOf(url))
+                    result.success(response.toString())
+                } catch (e: ClassNotFoundException) {
+                    result.error("YTDLP_UNAVAILABLE", "yt-dlp is only available in experimental builds.", null)
+                } catch (e: Exception) {
+                    result.error("YTDLP_ERROR", e.message, null)
                 }
             } else {
                 result.notImplemented()

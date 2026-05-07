@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dartz/dartz.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/error/exceptions.dart';
@@ -24,6 +25,7 @@ class VaultRepositoryImpl implements VaultRepository {
   final FileEncryptionDataSource _encryptionDS;
   final VaultMetadataDataSource _metadataDS;
   final AuthLocalDataSource _authDS;
+  final LocalAuthentication? _localAuth;
 
   /// In-memory flag: true while the vault session is unlocked.
   bool _isUnlocked = false;
@@ -38,9 +40,11 @@ class VaultRepositoryImpl implements VaultRepository {
     required FileEncryptionDataSource encryptionDataSource,
     required VaultMetadataDataSource metadataDataSource,
     required AuthLocalDataSource authDataSource,
+    LocalAuthentication? localAuth,
   })  : _encryptionDS = encryptionDataSource,
         _metadataDS = metadataDataSource,
-        _authDS = authDataSource;
+        _authDS = authDataSource,
+        _localAuth = localAuth;
 
   /// Returns the absolute path to the private vault directory,
   /// creating it if it doesn't exist yet.
@@ -79,8 +83,7 @@ class VaultRepositoryImpl implements VaultRepository {
         return const Right(true);
       } else {
         final attempts = await _authDS.incrementFailedAttempts();
-        final remaining =
-            (5 - attempts).clamp(0, 5); // AuthState.maxFailedAttempts = 5
+        final remaining = _remainingAttempts(5 - attempts);
 
         if (remaining <= 0) {
           _isUnlocked = false;
@@ -100,6 +103,59 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
+  Future<Either<Failure, bool>> authenticateWithBiometric() async {
+    final localAuth = _localAuth;
+    if (localAuth == null) {
+      return const Left(AuthenticationFailure(attemptsRemaining: 0));
+    }
+
+    try {
+      if (await _authDS.isLockedOut()) {
+        final lockUntil = await _authDS.getLockoutUntil();
+        return Left(VaultLockedFailure(
+          lockDuration: lockUntil!.difference(DateTime.now()),
+        ));
+      }
+
+      final hasPin = await _authDS.getHashedPin() != null;
+      final canUseBiometrics = hasPin &&
+          await localAuth.isDeviceSupported() &&
+          await localAuth.canCheckBiometrics;
+
+      if (!canUseBiometrics) {
+        return const Left(AuthenticationFailure(attemptsRemaining: 0));
+      }
+
+      final authenticated = await localAuth.authenticate(
+        localizedReason: 'Unlock your VidMaster vault',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      if (!authenticated) {
+        _isUnlocked = false;
+        return const Left(AuthenticationFailure(attemptsRemaining: 0));
+      }
+
+      await _authDS.resetFailedAttempts();
+      _isUnlocked = true;
+      return const Right(true);
+    } on CacheException catch (e, st) {
+      return Left(CacheFailure(
+        'Biometric authentication error: ${e.message}',
+        stackTrace: st,
+      ));
+    } catch (e, st) {
+      return Left(CacheFailure(
+        'Biometric authentication failed: $e',
+        stackTrace: st,
+      ));
+    }
+  }
+
+  @override
   Future<Either<Failure, bool>> isVaultUnlocked() async {
     return Right(_isUnlocked);
   }
@@ -114,7 +170,7 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<Either<Failure, int?>> getRemainingAttempts() async {
     try {
       final failed = await _authDS.getFailedAttempts();
-      final remaining = (5 - failed).clamp(0, 5);
+      final remaining = _remainingAttempts(5 - failed);
       return Right(remaining);
     } on CacheException catch (e, st) {
       return Left(CacheFailure('Failed to get remaining attempts: ${e.message}',
@@ -130,6 +186,10 @@ class VaultRepositoryImpl implements VaultRepository {
     required String userPin,
   }) async {
     try {
+      final auth = await authenticateUser(userPin);
+      final authFailure = auth.fold((failure) => failure, (_) => null);
+      if (authFailure != null) return Left(authFailure);
+
       final sourceFile = File(sourceFilePath);
 
       // 1. Validate source file.
@@ -242,6 +302,10 @@ class VaultRepositoryImpl implements VaultRepository {
     required String userPin,
   }) async {
     try {
+      final auth = await authenticateUser(userPin);
+      final authFailure = auth.fold((failure) => failure, (_) => null);
+      if (authFailure != null) return Left(authFailure);
+
       // 1. Verify the encrypted file exists.
       final vaultPath = await _getVaultDir();
       final encFile = File('$vaultPath/${metadata.encFileName}');
@@ -315,6 +379,9 @@ class VaultRepositoryImpl implements VaultRepository {
   @override
   Future<Either<Failure, List<EncryptedFileMetadata>>> getVaultItems() async {
     try {
+      if (!_isUnlocked) {
+        return const Left(AuthenticationFailure(attemptsRemaining: 0));
+      }
       return Right(_metadataDS.getAllMetadata());
     } on CacheException catch (e, st) {
       return Left(CacheFailure('Failed to fetch vault items: ${e.message}',
@@ -326,6 +393,9 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<Either<Failure, EncryptedFileMetadata?>> getVaultItemById(
       String id) async {
     try {
+      if (!_isUnlocked) {
+        return const Left(AuthenticationFailure(attemptsRemaining: 0));
+      }
       return Right(_metadataDS.getMetadata(id));
     } on CacheException catch (e, st) {
       return Left(CacheFailure('Failed to fetch vault item: ${e.message}',
@@ -336,6 +406,9 @@ class VaultRepositoryImpl implements VaultRepository {
   @override
   Future<Either<Failure, int>> getVaultItemCount() async {
     try {
+      if (!_isUnlocked) {
+        return const Left(AuthenticationFailure(attemptsRemaining: 0));
+      }
       return Right(_metadataDS.getItemCount());
     } on CacheException catch (e, st) {
       return Left(CacheFailure('Failed to get item count: ${e.message}',
@@ -346,6 +419,9 @@ class VaultRepositoryImpl implements VaultRepository {
   @override
   Future<Either<Failure, int>> getVaultTotalSize() async {
     try {
+      if (!_isUnlocked) {
+        return const Left(AuthenticationFailure(attemptsRemaining: 0));
+      }
       final vaultPath = await _getVaultDir();
       int totalSize = 0;
       final items = _metadataDS.getAllMetadata();
@@ -371,6 +447,9 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<Either<Failure, void>> permanentlyDeleteFromVault(
       String metadataId) async {
     try {
+      if (!_isUnlocked) {
+        return const Left(AuthenticationFailure(attemptsRemaining: 0));
+      }
       final metadata = _metadataDS.getMetadata(metadataId);
       if (metadata == null) {
         return Left(FileNotFoundFailure('Vault item not found: $metadataId'));
@@ -401,6 +480,10 @@ class VaultRepositoryImpl implements VaultRepository {
     required String newPin,
   }) async {
     try {
+      final auth = await authenticateUser(currentPin);
+      final authFailure = auth.fold((failure) => failure, (_) => null);
+      if (authFailure != null) return Left(authFailure);
+
       // 1. Verify current PIN can unwrap at least one key.
       final items = _metadataDS.getAllMetadata();
 
@@ -505,5 +588,11 @@ class VaultRepositoryImpl implements VaultRepository {
       'png' => 'image/png',
       _ => 'application/octet-stream',
     };
+  }
+
+  int _remainingAttempts(int raw) {
+    if (raw < 0) return 0;
+    if (raw > 5) return 5;
+    return raw;
   }
 }

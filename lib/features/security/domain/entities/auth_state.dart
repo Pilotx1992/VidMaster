@@ -58,8 +58,12 @@ final class AuthState {
       DateTime.now().isBefore(lockoutUntil!);
 
   /// Remaining attempts before lockout (never negative).
-  int get remainingAttempts =>
-      (maxFailedAttempts - failedAttempts).clamp(0, maxFailedAttempts);
+  int get remainingAttempts {
+    final remaining = maxFailedAttempts - failedAttempts;
+    if (remaining < 0) return 0;
+    if (remaining > maxFailedAttempts) return maxFailedAttempts;
+    return remaining;
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -72,7 +76,8 @@ final class AuthState {
           lockoutUntil == other.lockoutUntil;
 
   @override
-  int get hashCode => Object.hash(status, isPinSet, failedAttempts, lockoutUntil);
+  int get hashCode =>
+      Object.hash(status, isPinSet, failedAttempts, lockoutUntil);
 
   @override
   String toString() =>

@@ -24,9 +24,7 @@ class GestureEngine {
     _volume = volume;
     _brightness = brightness;
 
-    _type = dx < screenWidth / 2
-        ? GestureType.brightness
-        : GestureType.volume;
+    _type = dx < screenWidth / 2 ? GestureType.brightness : GestureType.volume;
 
     _isLocked = false;
   }
@@ -54,21 +52,24 @@ class GestureEngine {
         final delta = dx * seekSensitivity;
         _preview += Duration(milliseconds: delta.toInt());
 
-        _preview = Duration(
-          milliseconds: _preview.inMilliseconds
-              .clamp(0, duration.inMilliseconds),
-        );
+        final previewMs = _preview.inMilliseconds;
+        final clampedMs = previewMs < 0
+            ? 0
+            : previewMs > duration.inMilliseconds
+                ? duration.inMilliseconds
+                : previewMs;
+        _preview = Duration(milliseconds: clampedMs);
 
         return GestureResult.seek(_preview);
 
       case GestureType.volume:
         _volume -= dy * verticalSensitivity;
-        _volume = _volume.clamp(0.0, 1.0);
+        _volume = _volume.clamp(0.0, 1.0).toDouble();
         return GestureResult.volume(_volume);
 
       case GestureType.brightness:
         _brightness -= dy * verticalSensitivity;
-        _brightness = _brightness.clamp(0.0, 1.0);
+        _brightness = _brightness.clamp(0.0, 1.0).toDouble();
         return GestureResult.brightness(_brightness);
 
       default:

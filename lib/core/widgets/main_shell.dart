@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'icons/custom_music_note_icon.dart';
 import '../../features/music_player/presentation/widgets/mini_player_bar.dart';
 import '../../features/downloader/application/services/clipboard_monitor.dart';
 import '../../features/downloader/presentation/widgets/quality_selection_sheet.dart';
@@ -39,47 +40,27 @@ class _MainShellState extends ConsumerState<MainShell> {
     });
 
     return Scaffold(
-      body: Stack(
-        children: [
-          widget.child,
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: kBottomNavigationBarHeight,
-            child: MiniPlayerBar(),
-          ),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _indexFromLocation(location),
-        onDestinationSelected: (i) => _navigate(context, i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.video_library_outlined),
-            selectedIcon: Icon(Icons.video_library),
-            label: 'Videos',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.music_note_outlined),
-            selectedIcon: Icon(Icons.music_note),
-            label: 'Music',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.download_outlined),
-            selectedIcon: Icon(Icons.download),
-            label: 'Downloads',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
+      body: widget.child,
+      bottomNavigationBar: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Column(
+          textDirection: TextDirection.ltr,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const MiniPlayerBar(),
+            _PremiumBottomBar(
+              selectedIndex: _indexFromLocation(location),
+              onTap: (i) => _navigate(context, i),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   void _showLinkDetectedSnackBar(String url) {
+    final previewLength = url.length > 30 ? 30 : url.length;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -92,7 +73,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Link detected: ${url.substring(0, url.length.clamp(0, 30))}...',
+                'Link detected: ${url.substring(0, previewLength)}...',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -119,7 +100,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
     try {
       final result = await ref.read(extractMetadataUseCaseProvider).call(url);
-      
+
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
 
@@ -132,31 +113,139 @@ class _MainShellState extends ConsumerState<MainShell> {
             context: context,
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
-            builder: (context) => QualitySelectionSheet(result: extractionResult),
+            builder: (context) =>
+                QualitySelectionSheet(result: extractionResult),
           );
         },
       );
     } catch (e) {
       if (mounted) Navigator.pop(context);
     }
-    
+
     // Clear the detected link after action
     ref.read(detectedLinkProvider.notifier).state = null;
   }
 
   int _indexFromLocation(String location) {
     if (location.startsWith(AppRoutes.music)) return 1;
-    if (location.startsWith(AppRoutes.downloads)) return 2;
-    if (location.startsWith(AppRoutes.settings)) return 3;
+    if (location.startsWith(AppRoutes.playlists)) return 2;
     return 0;
   }
 
   void _navigate(BuildContext context, int index) {
     switch (index) {
-      case 0: context.go(AppRoutes.videos);
-      case 1: context.go(AppRoutes.music);
-      case 2: context.go(AppRoutes.downloads);
-      case 3: context.go(AppRoutes.settings);
+      case 0:
+        context.go(AppRoutes.videos);
+        break;
+      case 1:
+        context.go(AppRoutes.music);
+        break;
+      case 2:
+        context.go(AppRoutes.playlists);
+        break;
     }
+  }
+}
+
+class _PremiumBottomBar extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+  const _PremiumBottomBar({required this.selectedIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: kBottomNavigationBarHeight,
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.black
+              : Colors.white,
+          border: Border(
+            top: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+          ),
+        ),
+        // RTL would reverse tab order; keep XPlayer-like order on all locales.
+        child: Row(
+          textDirection: TextDirection.ltr,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _NavItem(
+              icon: Icons.movie_creation_outlined,
+              label: 'Video',
+              selected: selectedIndex == 0,
+              onTap: () => onTap(0),
+            ),
+            _NavItem(
+              iconWidgetBuilder: (color) => CustomMusicNoteIcon(
+                color: color,
+                filled: selectedIndex == 1,
+                size: 26,
+              ),
+              label: 'Music',
+              selected: selectedIndex == 1,
+              onTap: () => onTap(1),
+            ),
+            _NavItem(
+              icon: Icons.playlist_play_rounded,
+              label: 'Playlist',
+              selected: selectedIndex == 2,
+              onTap: () => onTap(2),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData? icon;
+  final Widget Function(Color color)? iconWidgetBuilder;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+    this.iconWidgetBuilder,
+  });
+
+  static const _active = Color(0xFF00C853);
+  static const _inactive = Color(0xFF9E9E9E);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? _active : _inactive;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (iconWidgetBuilder != null)
+              iconWidgetBuilder!(color)
+            else
+              Icon(icon, size: 30, color: color),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

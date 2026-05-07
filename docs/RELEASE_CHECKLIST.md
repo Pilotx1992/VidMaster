@@ -15,6 +15,13 @@ This checklist must be completed before any production release.
 - [ ] Verify Isar schemas are up to date and migrations (if any) are handled.
 - [ ] Run `dart run build_runner build --delete-conflicting-outputs`.
 
+## 2.1 Milestone Definition of Done
+- [ ] `dart analyze lib test` returns 0 issues.
+- [ ] The relevant flavor builds successfully.
+- [ ] No open P1 bug exists in the changed feature area.
+- [ ] Manual smoke path is verified on device/emulator.
+- [ ] Generated files are regenerated after model/schema changes.
+
 ## 3. UI/UX & Localization
 - [ ] Verify Dark/Light mode consistency across all screens.
 - [ ] Test RTL (Arabic) layout mirroring on all features.
@@ -23,8 +30,8 @@ This checklist must be completed before any production release.
 
 ## 4. Build & Distribution
 - [ ] Increment `version` in `pubspec.yaml` (e.g., `1.0.1+2`).
-- [ ] Run `flutter build apk --release --split-per-abi`.
-- [ ] Run `flutter build appbundle`.
+- [ ] Run `flutter build apk --release --flavor stable --split-per-abi`.
+- [ ] Run `flutter build apk --release --flavor experimental`.
 - [ ] Verify APK size is within target range (< 50MB per ABI).
 - [ ] Check Proguard/R8 obfuscation rules in `proguard-rules.pro`.
 

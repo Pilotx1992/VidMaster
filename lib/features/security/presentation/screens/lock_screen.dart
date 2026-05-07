@@ -10,7 +10,9 @@ import '../../../../core/router/app_router.dart';
 import '../providers/auth_provider.dart';
 
 class LockScreen extends ConsumerStatefulWidget {
-  const LockScreen({super.key});
+  final String? redirectPath;
+
+  const LockScreen({this.redirectPath, super.key});
 
   @override
   ConsumerState<LockScreen> createState() => _LockScreenState();
@@ -32,7 +34,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     // Listen for successful auth and navigate away.
     ref.listenManual(appAuthProvider, (_, state) {
       if (state.screenStatus == AuthScreenStatus.authenticated) {
-        context.go(AppRoutes.videos);
+        context.go(widget.redirectPath ?? AppRoutes.videos);
       }
     });
   }
@@ -110,7 +112,8 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   const SizedBox(height: 12),
                   Text(
                     state.errorMessage!,
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                    style:
+                        const TextStyle(color: Colors.redAccent, fontSize: 13),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -121,8 +124,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 FilledButton(
                   onPressed: state.isLoading
                       ? null
-                      : () => notifier
-                          .authenticateWithPin(_pinController.text),
+                      : () => notifier.authenticateWithPin(_pinController.text),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(double.infinity, 48),
                     backgroundColor: const Color(0xFF1565C0),
@@ -142,8 +144,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 // Biometric retry
                 TextButton.icon(
                   onPressed: notifier.authenticateWithBiometric,
-                  icon: const Icon(Icons.fingerprint,
-                      color: Color(0xFFF9A825)),
+                  icon: const Icon(Icons.fingerprint, color: Color(0xFFF9A825)),
                   label: const Text(
                     'Use biometrics',
                     style: TextStyle(color: Color(0xFFF9A825)),

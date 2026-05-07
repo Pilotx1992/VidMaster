@@ -13,8 +13,12 @@ dependencies:
   # 🔥 Video Engine
   media_kit: ^1.2.0
   media_kit_video: ^2.0.1
+  # Native playback dependencies (includes libmpv.so inside APK via build-time artifacts)
+  media_kit_libs_video: ^1.0.7
   wakelock_plus: ^1.2.8
-  ffmpeg_kit_flutter_full_gpl: 6.0.2
+  # ffmpeg_kit_flutter_* (Arthenica) is discontinued and its Maven artifacts may be removed.
+  # Use the maintained fork to keep Android builds deterministic.
+  ffmpeg_kit_flutter_new: ^4.1.0
 
   # 🔊 Audio Engine
   just_audio: ^0.9.46
@@ -78,7 +82,7 @@ dependencies:
   photo_manager: ^3.9.0
   uuid: ^4.5.3
   cached_network_image: ^3.4.1
-  super_clipboard: ^0.9.1
+  # Removed: depends on build_tool inside pub cache (breaks Android builds)
 
 dev_dependencies:
   flutter_test:
@@ -96,3 +100,17 @@ dev_dependencies:
 
   flutter_native_splash: ^2.4.4
   flutter_launcher_icons: ^0.14.3
+
+dependency_overrides:
+  # Upstream plugin still uses V1 embedding on pub.dev; Flutter 3.29+ removed Registrar.
+  flutter_windowmanager:
+    git:
+      url: https://github.com/adaptant-labs/flutter_windowmanager.git
+      ref: b79d79f
+
+  # sqflite_android 2.4.2+3 uses APIs not available on our compileSdk toolchain.
+  sqflite: 2.4.1
+  sqflite_android: 2.4.1
+
+flutter:
+  uses-material-design: true
