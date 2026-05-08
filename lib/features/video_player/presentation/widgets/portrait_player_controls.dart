@@ -1,15 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/video_playback_state.dart';
 import '../providers/video_player_notifier.dart';
-import 'player_control_helpers.dart';
+import 'player_more_menu.dart';
 import 'player_quick_actions_row.dart';
 import 'player_seek_section.dart';
-import 'player_speed_menu_button.dart';
 import 'player_subtitle_track_menu.dart';
 import 'player_top_bar.dart';
 import 'player_transport_controls.dart';
 
+/// Bottom-focused panel: top stays minimal; quick actions + seek + transport sit low.
 class PortraitPlayerControls extends StatelessWidget {
   final VideoPlayerState state;
   final VideoPlayerNotifier notifier;
@@ -29,6 +31,7 @@ class PortraitPlayerControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = state.currentVideo?.name ?? '';
+    final bottomPad = MediaQuery.viewPaddingOf(context).bottom;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -37,66 +40,62 @@ class PortraitPlayerControls extends StatelessWidget {
           title: title,
           onBack: onBack,
           actions: [
-            IconButton(
-              tooltip: 'Open subtitle file',
-              icon: const Icon(Icons.subtitles_outlined, color: Colors.white),
-              onPressed: onPickSubtitle,
-            ),
             PlayerSubtitleTrackMenu(state: state, notifier: notifier),
-            IconButton(
-              tooltip: 'Subtitle style',
-              icon: const Icon(Icons.style, color: Colors.white),
-              onPressed: onSubtitleStyling,
-            ),
-            IconButton(
-              tooltip:
-                  'Aspect: ${aspectRatioModeLabel(state.aspectRatioMode)} — tap to change',
-              icon: const Icon(Icons.aspect_ratio, color: Colors.white),
-              onPressed: notifier.cycleAspectRatio,
-            ),
-            PlayerSpeedMenuButton(
-              speed: state.playbackSpeed,
-              onSelected: (v) => notifier.setPlaybackSpeed(v),
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'More',
-              icon: const Icon(Icons.more_vert, color: Colors.white),
-              onSelected: (v) {
-                if (v == 'pick') onPickSubtitle();
-                if (v == 'style') onSubtitleStyling();
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'pick', child: Text('Open subtitle file')),
-                PopupMenuItem(value: 'style', child: Text('Subtitle style')),
-              ],
+            PlayerMoreMenu(
+              onPickSubtitle: onPickSubtitle,
+              onSubtitleStyling: onSubtitleStyling,
             ),
           ],
         ),
-        PlayerQuickActionsRow(
-          state: state,
-          notifier: notifier,
-          onPickSubtitle: onPickSubtitle,
-          onSubtitleStyling: onSubtitleStyling,
-        ),
-        const Spacer(),
-        if (state.canSeek)
-          PlayerSeekSection(
-            position: state.position,
-            duration: state.duration,
-            onSeek: (d) => notifier.seek(d),
-          ),
-        PlayerTransportControls(
-          isPlaying: state.isPlaying,
-          centerIconSize: 76,
-          onPlayPause: () => state.isPlaying ? notifier.pause() : notifier.play(),
-          onReplay10: () => notifier.seek(
-            state.position - const Duration(seconds: 10),
-          ),
-          onForward10: () => notifier.seek(
-            state.position + const Duration(seconds: 10),
+        Expanded(
+          child: IgnorePointer(
+            ignoring: true,
+            child: SizedBox.expand(),
           ),
         ),
-        SizedBox(height: MediaQuery.viewPaddingOf(context).bottom + 12),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.72),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border(
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 16, 12, 12 + bottomPad),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PlayerQuickActionsRow(
+                  state: state,
+                  notifier: notifier,
+                  compact: false,
+                  showLabels: true,
+                ),
+                const SizedBox(height: 16),
+                if (state.canSeek)
+                  PlayerSeekSection(
+                    position: state.position,
+                    duration: state.duration,
+                    onSeekEnd: (d) => notifier.seek(d),
+                  ),
+                PlayerTransportControls(
+                  isPlaying: state.isPlaying,
+                  centerIconSize: 76,
+                  onPlayPause: () {
+                    unawaited(notifier.togglePlayPause());
+                  },
+                  onReplay10: () => notifier.seek(
+                    state.position - const Duration(seconds: 10),
+                  ),
+                  onForward10: () => notifier.seek(
+                    state.position + const Duration(seconds: 10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

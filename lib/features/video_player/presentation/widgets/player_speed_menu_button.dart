@@ -6,11 +6,13 @@ import 'player_control_helpers.dart';
 class PlayerSpeedMenuButton extends StatelessWidget {
   final double speed;
   final ValueChanged<double> onSelected;
+  final Widget? menuChild;
 
   const PlayerSpeedMenuButton({
     super.key,
     required this.speed,
     required this.onSelected,
+    this.menuChild,
   });
 
   @override
@@ -36,19 +38,20 @@ class PlayerSpeedMenuButton extends StatelessWidget {
             ),
           ),
       ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Center(
-          child: Text(
-            formatSpeedLabel(speed),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+      child: menuChild ??
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Center(
+              child: Text(
+                formatSpeedLabel(speed),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
     );
   }
 }

@@ -41,7 +41,7 @@
     <application
         android:label="VidMaster"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon"
+        android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
         
         <!-- Google Cast framework configuration -->

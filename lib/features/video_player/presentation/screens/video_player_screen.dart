@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import 'package:vidmaster/core/theme/app_theme.dart';
 import 'package:vidmaster/features/video_player/presentation/providers/video_player_provider.dart';
 import 'package:vidmaster/features/video_player/presentation/providers/video_player_notifier.dart';
 import 'package:vidmaster/features/video_player/presentation/providers/mini_player_provider.dart';
@@ -19,6 +18,19 @@ import 'package:vidmaster/features/video_player/presentation/widgets/portrait_pl
 import 'package:vidmaster/features/video_player/presentation/widgets/player_locked_overlay.dart';
 import 'package:vidmaster/features/video_player/presentation/widgets/player_loading_overlay.dart';
 import 'package:vidmaster/features/video_player/presentation/widgets/player_error_overlay.dart';
+
+/// Spinner only before first progress, and never while [VideoPlayerState.isPlaying].
+bool _showPlayerLoadingOverlay(VideoPlayerState state) {
+  if (state.isPlaying) return false;
+  if (state.status == PlayerStatus.error) return false;
+  if (state.status == PlayerStatus.loading) {
+    return state.position <= Duration.zero;
+  }
+  if (state.status == PlayerStatus.buffering) {
+    return state.position <= Duration.zero;
+  }
+  return false;
+}
 
 class VideoPlayerArgs {
   final VideoFile video;
@@ -38,6 +50,8 @@ class VideoPlayerScreen extends ConsumerStatefulWidget {
 
 class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  static final _controlsFadeTween = Tween<double>(begin: 0, end: 1);
+
   @override
   bool get wantKeepAlive => true;
 
@@ -90,6 +104,8 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
           backgroundColor: Colors.black,
           body: Stack(
             fit: StackFit.expand,
+            // Hit-test / z-order: ProGestureLayer is built ONLY while controls are
+            // hidden — never stacked above Portrait/Landscape controls.
             children: [
               const ColoredBox(color: Colors.black),
               Positioned.fill(
@@ -130,37 +146,54 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                   state.showControls &&
                   state.status != PlayerStatus.error)
                 Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: notifier.toggleControls,
-                    child: RepaintBoundary(
-                      child: DecoratedBox(
-                        decoration: AppDecorations.playerOverlay,
-                        child: isLandscape
-                            ? LandscapePlayerControls(
-                                state: state,
-                                notifier: notifier,
-                                onBack: () => context.pop(),
-                                onPickSubtitle: () =>
-                                    _pickExternalSubtitle(context, notifier),
-                                onSubtitleStyling: () =>
-                                    _showSubtitleStyling(context),
-                              )
-                            : PortraitPlayerControls(
-                                state: state,
-                                notifier: notifier,
-                                onBack: () => context.pop(),
-                                onPickSubtitle: () =>
-                                    _pickExternalSubtitle(context, notifier),
-                                onSubtitleStyling: () =>
-                                    _showSubtitleStyling(context),
-                              ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Dismiss layer: must sit *under* controls so play/seek/CC win
+                      // hit tests (parent GestureDetector used to compete with IconButtons).
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: notifier.toggleControls,
+                          child: const ColoredBox(color: Colors.transparent),
+                        ),
                       ),
-                    ),
+                      Positioned.fill(
+                        child: RepaintBoundary(
+                          child: TweenAnimationBuilder<double>(
+                            tween: _controlsFadeTween,
+                            duration: const Duration(milliseconds: 240),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, t, child) =>
+                                Opacity(opacity: t, child: child),
+                            child: isLandscape
+                                ? LandscapePlayerControls(
+                                    state: state,
+                                    notifier: notifier,
+                                    onBack: () => context.pop(),
+                                    onPickSubtitle: () =>
+                                        _pickExternalSubtitle(
+                                            context, notifier),
+                                    onSubtitleStyling: () =>
+                                        _showSubtitleStyling(context),
+                                  )
+                                : PortraitPlayerControls(
+                                    state: state,
+                                    notifier: notifier,
+                                    onBack: () => context.pop(),
+                                    onPickSubtitle: () =>
+                                        _pickExternalSubtitle(
+                                            context, notifier),
+                                    onSubtitleStyling: () =>
+                                        _showSubtitleStyling(context),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              if (state.status == PlayerStatus.loading ||
-                  state.status == PlayerStatus.buffering)
+              if (_showPlayerLoadingOverlay(state))
                 const Positioned.fill(child: PlayerLoadingOverlay()),
               if (state.isLocked)
                 Positioned.fill(

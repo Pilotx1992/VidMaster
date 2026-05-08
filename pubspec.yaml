@@ -114,3 +114,13 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
+
+# Regenerate launcher icons after changing image_path:
+#   dart run flutter_launcher_icons
+# Then: flutter clean && flutter run … (or uninstall the app so the launcher cache refreshes)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/logo.png
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: assets/images/logo.png

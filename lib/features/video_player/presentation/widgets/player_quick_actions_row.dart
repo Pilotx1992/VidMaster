@@ -4,51 +4,113 @@ import '../../domain/entities/video_playback_state.dart';
 import '../providers/video_player_notifier.dart';
 import 'player_control_helpers.dart';
 import 'player_speed_menu_button.dart';
-import 'player_subtitle_track_menu.dart';
 
-/// Horizontal quick actions: lock, mute, aspect cycle, CC, speed, more.
+/// Lock, Mute, Aspect, Speed only — no subtitle / more (those live in [PlayerTopBar]).
 class PlayerQuickActionsRow extends StatelessWidget {
   final VideoPlayerState state;
   final VideoPlayerNotifier notifier;
-  final VoidCallback onPickSubtitle;
-  final VoidCallback onSubtitleStyling;
   final bool compact;
+  final bool showLabels;
 
   const PlayerQuickActionsRow({
     super.key,
     required this.state,
     required this.notifier,
-    required this.onPickSubtitle,
-    required this.onSubtitleStyling,
     this.compact = false,
+    this.showLabels = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final muted = state.volume < 0.01;
-    final iconSize = compact ? 20.0 : 22.0;
+    final size = compact ? 44.0 : 52.0;
+    final iconSz = compact ? 22.0 : 24.0;
+    final labelStyle = TextStyle(
+      color: Colors.white.withValues(alpha: 0.75),
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+    );
+
+    Widget circleTap({
+      required IconData icon,
+      required String tooltip,
+      required VoidCallback onTap,
+    }) {
+      return Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.14),
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Icon(icon, color: Colors.white, size: iconSz),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget wrapLabel(Widget w, String label) {
+      if (!showLabels || compact) return w;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          w,
+          const SizedBox(height: 4),
+          Text(label, style: labelStyle),
+        ],
+      );
+    }
+
+    final speedChip = PlayerSpeedMenuButton(
+      speed: state.playbackSpeed,
+      onSelected: (v) => notifier.setPlaybackSpeed(v),
+      menuChild: Material(
+        color: Colors.white.withValues(alpha: 0.14),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Center(
+            child: Text(
+              _speedShort(state.playbackSpeed),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: compact ? 12 : 13,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
 
     return Directionality(
       textDirection: TextDirection.ltr,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            IconButton(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          wrapLabel(
+            circleTap(
+              icon: Icons.lock_outline_rounded,
               tooltip: 'Lock screen',
-              iconSize: iconSize + 4,
-              icon: const Icon(Icons.lock_outline, color: Colors.white),
-              onPressed: notifier.toggleLockMode,
+              onTap: notifier.toggleLockMode,
             ),
-            IconButton(
+            'Lock',
+          ),
+          SizedBox(width: compact ? 12 : 18),
+          wrapLabel(
+            circleTap(
+              icon: muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
               tooltip: muted ? 'Unmute' : 'Mute',
-              iconSize: iconSize + 4,
-              icon: Icon(
-                muted ? Icons.volume_off : Icons.volume_up,
-                color: Colors.white,
-              ),
-              onPressed: () {
+              onTap: () {
                 if (muted) {
                   notifier.setVolume(1.0);
                 } else {
@@ -56,33 +118,35 @@ class PlayerQuickActionsRow extends StatelessWidget {
                 }
               },
             ),
-            IconButton(
+            'Mute',
+          ),
+          SizedBox(width: compact ? 12 : 18),
+          wrapLabel(
+            circleTap(
+              icon: Icons.fit_screen_rounded,
               tooltip:
-                  'Aspect: ${aspectRatioModeLabel(state.aspectRatioMode)} — tap to change',
-              iconSize: iconSize + 4,
-              icon: const Icon(Icons.fit_screen, color: Colors.white),
-              onPressed: notifier.cycleAspectRatio,
+                  '${aspectRatioModeLabel(state.aspectRatioMode)} — tap to change',
+              onTap: notifier.cycleAspectRatio,
             ),
-            PlayerSubtitleTrackMenu(state: state, notifier: notifier),
-            PlayerSpeedMenuButton(
-              speed: state.playbackSpeed,
-              onSelected: (v) => notifier.setPlaybackSpeed(v),
+            'Aspect',
+          ),
+          SizedBox(width: compact ? 12 : 18),
+          wrapLabel(
+            Tooltip(
+              message: 'Speed',
+              child: speedChip,
             ),
-            PopupMenuButton<String>(
-              tooltip: 'More',
-              icon: const Icon(Icons.more_vert, color: Colors.white),
-              onSelected: (v) {
-                if (v == 'pick') onPickSubtitle();
-                if (v == 'style') onSubtitleStyling();
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'pick', child: Text('Open subtitle file')),
-                PopupMenuItem(value: 'style', child: Text('Subtitle style')),
-              ],
-            ),
-          ],
-        ),
+            'Speed',
+          ),
+        ],
       ),
     );
   }
+}
+
+String _speedShort(double speed) {
+  if (speed <= 0) return '1';
+  final r = (speed * 100).round() / 100;
+  if ((r * 100) % 100 == 0) return r.toStringAsFixed(0);
+  return r.toString();
 }

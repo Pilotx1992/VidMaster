@@ -177,6 +177,17 @@ class _ThumbnailImageState extends State<_ThumbnailImage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.video.filePath != widget.video.filePath) {
       _syncThumbnailForCurrentVideo();
+      return;
+    }
+    if (oldWidget.video.thumbnailPath != widget.video.thumbnailPath) {
+      final fromEntity = widget.video.thumbnailPath;
+      setState(() {
+        _thumbPath = fromEntity;
+        _loadingForPath = null;
+      });
+      if (fromEntity == null) {
+        _loadThumbnailFor(widget.video.filePath);
+      }
     }
   }
 
@@ -199,7 +210,6 @@ class _ThumbnailImageState extends State<_ThumbnailImage> {
     if (!mounted) return;
     setState(() {
       _loadingForPath = videoPath;
-      _thumbPath = null;
     });
 
     final path = await widget.ref

@@ -1,4 +1,9 @@
+import 'package:flutter/material.dart';
+
 import '../../domain/entities/video_playback_state.dart';
+
+/// Premium player accent (XPlayer-like green).
+const Color kPlayerAccent = Color(0xFF10B919);
 
 String formatPlayerDuration(Duration d) {
   final h = d.inHours;

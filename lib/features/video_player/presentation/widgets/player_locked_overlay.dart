@@ -15,19 +15,24 @@ class PlayerLockedOverlay extends StatelessWidget {
         ),
         Center(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(24),
+              color: Colors.black.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white24),
             ),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.lock, color: Colors.white),
-                SizedBox(width: 8),
+                Icon(Icons.lock_rounded, color: Colors.white, size: 22),
+                SizedBox(width: 10),
                 Text(
-                  'Locked — tap unlock below',
-                  style: TextStyle(color: Colors.white),
+                  'Locked',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.3,
+                  ),
                 ),
               ],
             ),
@@ -37,14 +42,14 @@ class PlayerLockedOverlay extends StatelessWidget {
           child: Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(bottom: 28),
               child: FloatingActionButton.small(
                 heroTag: 'player_unlock',
-                tooltip: 'Unlock controls',
+                tooltip: 'Unlock',
                 onPressed: onUnlock,
-                backgroundColor: Colors.black54,
+                backgroundColor: Colors.white.withValues(alpha: 0.16),
                 foregroundColor: Colors.white,
-                child: const Icon(Icons.lock_open),
+                child: const Icon(Icons.lock_open_rounded),
               ),
             ),
           ),

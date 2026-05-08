@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Center play/pause with ±10s — LTR row for consistent layout.
+import 'player_control_helpers.dart';
+
+/// replay_10 · play/pause · forward_10 — LTR, white side icons, accent play.
 class PlayerTransportControls extends StatelessWidget {
   final bool isPlaying;
   final VoidCallback onPlayPause;
@@ -19,28 +21,37 @@ class PlayerTransportControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Keep ±10 clearly smaller than the main play/pause control.
+    final skipSize = (centerIconSize * 0.48).clamp(30.0, 42.0);
+
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            iconSize: 48,
+            iconSize: skipSize,
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            padding: EdgeInsets.zero,
             tooltip: 'Back 10 seconds',
             icon: const Icon(Icons.replay_10, color: Colors.white),
             onPressed: onReplay10,
           ),
           IconButton(
             iconSize: centerIconSize,
+            constraints: const BoxConstraints(minWidth: 88, minHeight: 88),
+            padding: EdgeInsets.zero,
             tooltip: isPlaying ? 'Pause' : 'Play',
             icon: Icon(
-              isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-              color: const Color(0xFFF9A825),
+              isPlaying ? Icons.pause_circle : Icons.play_circle,
+              color: kPlayerAccent,
             ),
             onPressed: onPlayPause,
           ),
           IconButton(
-            iconSize: 48,
+            iconSize: skipSize,
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            padding: EdgeInsets.zero,
             tooltip: 'Forward 10 seconds',
             icon: const Icon(Icons.forward_10, color: Colors.white),
             onPressed: onForward10,

@@ -130,7 +130,7 @@ Path prefix: `lib/features/video_player/`
 | Concern                              | File |
 |--------------------------------------|------|
 | Library screen (XPlayer-style list)  | `presentation/screens/video_library_screen.dart` |
-| Player screen + `VideoPlayerArgs`    | `presentation/screens/video_player_screen.dart` |
+| Player screen + `VideoPlayerArgs`    | `presentation/screens/video_player_screen.dart` — **`_showPlayerLoadingOverlay`**: spinner only when not `isPlaying`, not error, and (`loading` or `buffering` with `position <= Duration.zero`). Inner **`Stack`**: tap-to-dismiss under controls; **`ProGestureLayer`** only when **`!showControls`** (never above controls). |
 | Library state                        | `presentation/providers/video_library_provider.dart` |
 | Player state                         | `presentation/providers/video_player_notifier.dart`, `presentation/providers/video_player_provider.dart` |
 | Mini player (video) state            | `presentation/providers/mini_player_provider.dart` |
@@ -140,25 +140,29 @@ Path prefix: `lib/features/video_player/`
 | Pro gesture overlay                  | `presentation/widgets/pro_gesture_layer.dart` |
 | Gesture engine widget glue           | `presentation/widgets/gesture_engine.dart` |
 | Subtitle styling sheet               | `presentation/widgets/subtitle_styling_sheet.dart` |
-| Thumbnail card (grid)                | `presentation/widgets/video_thumbnail_card.dart` |
-| Player chrome (Phase 2B)             | `presentation/widgets/player_top_bar.dart`<br>`presentation/widgets/player_seek_section.dart` (LTR `Slider`)<br>`presentation/widgets/player_transport_controls.dart` (±10s + play/pause)<br>`presentation/widgets/player_quick_actions_row.dart` (lock, mute, aspect, CC, speed, more)<br>`presentation/widgets/player_speed_menu_button.dart`<br>`presentation/widgets/player_subtitle_track_menu.dart`<br>`presentation/widgets/player_control_helpers.dart` (duration / speed / aspect labels)<br>`presentation/widgets/landscape_player_controls.dart`<br>`presentation/widgets/portrait_player_controls.dart` |
+| Thumbnail card (grid)                | `presentation/widgets/video_thumbnail_card.dart` (`_ThumbnailImage` syncs `thumbnailPath` in `didUpdateWidget`) |
+| Player chrome (Phase 2B / 2B-R)     | `presentation/widgets/player_top_bar.dart` (back, title, trailing actions)<br>`presentation/widgets/player_more_menu.dart` (subtitle file + style)<br>`presentation/widgets/player_seek_section.dart` (LTR `Slider`, seek on `onChangeEnd` only)<br>`presentation/widgets/player_transport_controls.dart` (±10s + play/pause, large play hit target)<br>`presentation/widgets/player_quick_actions_row.dart` (lock, mute, aspect, speed — **no** duplicate CC/More)<br>`presentation/widgets/player_speed_menu_button.dart`<br>`presentation/widgets/player_subtitle_track_menu.dart` (TopBar CC tracks)<br>`presentation/widgets/player_control_helpers.dart` (`kPlayerAccent`, duration / speed / aspect labels)<br>`presentation/widgets/landscape_player_controls.dart`<br>`presentation/widgets/portrait_player_controls.dart` |
 | Overlays (Phase 2B)                  | `presentation/widgets/player_locked_overlay.dart`<br>`presentation/widgets/player_loading_overlay.dart`<br>`presentation/widgets/player_error_overlay.dart` |
 
-> `video_player_screen.dart`: layered **`Stack`** — black fill → centered
-> **`VideoSurface`** → **`ProGestureLayer`** when controls hidden (not locked,
-> not error) → **`LandscapePlayerControls`** / **`PortraitPlayerControls`** when
-> controls visible (`MediaQuery.orientationOf`) → **`PlayerLoadingOverlay`** →
-> **`PlayerLockedOverlay`** → **`PlayerErrorOverlay`**. Overlay gradient:
-> `AppDecorations.playerOverlay` (`app_theme.dart`).
+> `video_player_screen.dart`: **`Stack`** (z-order) — black → centered
+> **`VideoSurface`** → **`ProGestureLayer`** only if **`!locked && !showControls &&
+> !error`** → controls **`Stack`** (dismiss `GestureDetector` under
+> **`LandscapePlayerControls`** / **`PortraitPlayerControls`**, fade-in) if
+> **`showControls`** → **`PlayerLoadingOverlay`** (guarded by
+> **`_showPlayerLoadingOverlay`**) → locked / error overlays. Orientation:
+> `MediaQuery.orientationOf`. Gradients are **inside** top/bottom chrome widgets,
+> not a full-screen `AppDecorations.playerOverlay` wrapper.
 
 > `_XPlayerListRow`, `_TopRightControls`, derived `videoQueueFilesProvider`,
 > and the sort dialog (`_showXPlayerSortDialog`) are all **inside**
 > `presentation/screens/video_library_screen.dart`.
 
-> **`VideoPlayerNotifier`**: playback speed via `setPlaybackSpeed` +
-> `supportedPlaybackSpeeds`; after `open` / same-file reopen, engine rate is
-> synced with `VideoEngine.setPlaybackSpeed`. Aspect mode remains
-> `cycleAspectRatio()` only (no separate setter).
+> **`VideoPlayerNotifier`**: **`togglePlayPause()`** (guarded, delegates to
+> **`pause`/`play`**); **`_playingFromStream`** + **`Player.stream.buffering`**
+> so “buffering” events do not overwrite **`playing`**; **`position`** stream
+> clears stuck **`loading`/`buffering`** once progress exists. **`setPlaybackSpeed`**
+> + `supportedPlaybackSpeeds`; engine rate after `open` / same-file reopen.
+> **`cycleAspectRatio()`** only (no separate setter).
 
 ---
 
@@ -351,18 +355,25 @@ Path prefix: `lib/features/settings/`
   → `lib/features/video_player/presentation/providers/video_library_provider.dart`
     (`VideoLibraryState`, `displayVideos`, `updateSorting`, `enterSearch/exitSearch`).
 
+- **Video playback / play·pause / buffering / loading spinner**
+  → `lib/features/video_player/presentation/providers/video_player_notifier.dart`
+    (`togglePlayPause`, `playing` / `buffering` / `position` streams)
+  → `lib/features/video_player/presentation/screens/video_player_screen.dart`
+    (`_showPlayerLoadingOverlay`)
+
 - **Video playback engine / errors / open-by-path / speed / aspect cycle**
   → `lib/features/video_player/presentation/providers/video_player_notifier.dart`
   → `lib/features/video_player/data/data_sources/video_engine.dart`
   → `lib/features/video_player/presentation/screens/video_player_screen.dart`
 
-- **Video player UI (portrait vs landscape controls, seek LTR, overlays)**
+- **Video player UI (portrait vs landscape, seek LTR, overlays, more menu)**
   → `lib/features/video_player/presentation/screens/video_player_screen.dart`
   → `lib/features/video_player/presentation/widgets/landscape_player_controls.dart`
   → `lib/features/video_player/presentation/widgets/portrait_player_controls.dart`
   → `lib/features/video_player/presentation/widgets/player_seek_section.dart`
   → `lib/features/video_player/presentation/widgets/player_transport_controls.dart`
   → `lib/features/video_player/presentation/widgets/player_top_bar.dart`
+  → `lib/features/video_player/presentation/widgets/player_more_menu.dart`
   → `lib/features/video_player/presentation/widgets/player_quick_actions_row.dart`
   → `lib/features/video_player/presentation/widgets/player_locked_overlay.dart`
   → `lib/features/video_player/presentation/widgets/player_loading_overlay.dart`

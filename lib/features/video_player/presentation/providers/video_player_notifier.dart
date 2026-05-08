@@ -30,6 +30,9 @@ class VideoPlayerNotifier extends StateNotifier<VideoPlayerState> {
   Timer? _controlsAutoHideTimer;
   static const Duration _controlsAutoHideDelay = Duration(seconds: 3);
 
+  /// Last `playing` value from [Player.stream.playing] (avoids buffering overwriting playing).
+  bool _playingFromStream = false;
+
   VideoPlayerNotifier({
     required VideoEngine engine,
     required ResumeRepository resumeRepo,
@@ -59,7 +62,18 @@ class VideoPlayerNotifier extends StateNotifier<VideoPlayerState> {
   void _initStreams() {
     _subscriptions.add(_engine.player.stream.position.listen((pos) {
       if (!mounted) return;
-      state = state.copyWith(position: pos);
+
+      var nextStatus = state.status;
+      if (state.status == PlayerStatus.buffering &&
+          _playingFromStream &&
+          pos > Duration.zero) {
+        nextStatus = PlayerStatus.playing;
+      } else if (state.status == PlayerStatus.loading && pos > Duration.zero) {
+        nextStatus =
+            _playingFromStream ? PlayerStatus.playing : PlayerStatus.paused;
+      }
+
+      state = state.copyWith(position: pos, status: nextStatus);
       unawaited(_saveResumePositionIfNeeded(pos));
     }));
     _subscriptions.add(_engine.player.stream.duration.listen((dur) {
@@ -69,6 +83,7 @@ class VideoPlayerNotifier extends StateNotifier<VideoPlayerState> {
     }));
     _subscriptions.add(_engine.player.stream.playing.listen((playing) {
       if (mounted) {
+        _playingFromStream = playing;
         state = state.copyWith(
           status: playing ? PlayerStatus.playing : PlayerStatus.paused,
         );
@@ -80,9 +95,23 @@ class VideoPlayerNotifier extends StateNotifier<VideoPlayerState> {
       }
     }));
     _subscriptions.add(_engine.player.stream.buffering.listen((buffering) {
-      if (mounted && buffering) {
-        state = state.copyWith(status: PlayerStatus.buffering);
-        _cancelControlsAutoHide();
+      if (!mounted) return;
+      if (buffering) {
+        if (!state.isPlaying &&
+            state.status != PlayerStatus.loading &&
+            state.status != PlayerStatus.error) {
+          state = state.copyWith(status: PlayerStatus.buffering);
+          _cancelControlsAutoHide();
+        }
+      } else if (state.status == PlayerStatus.buffering) {
+        state = state.copyWith(
+          status: _playingFromStream
+              ? PlayerStatus.playing
+              : PlayerStatus.paused,
+        );
+        if (_playingFromStream) {
+          _scheduleControlsAutoHide();
+        }
       }
     }));
     _subscriptions.add(_engine.player.stream.error.listen((error) {
@@ -131,6 +160,7 @@ class VideoPlayerNotifier extends StateNotifier<VideoPlayerState> {
       clearError: true,
       playbackSpeed: 1.0,
     );
+    _playingFromStream = false;
 
     try {
       await _engine.pause();
@@ -175,6 +205,26 @@ class VideoPlayerNotifier extends StateNotifier<VideoPlayerState> {
     await _engine.pause();
     await _saveResumePositionIfNeeded(state.position, force: true);
     showControls();
+  }
+
+  bool _isTogglingPlayback = false;
+
+  Future<void> togglePlayPause() async {
+    if (_isTogglingPlayback) return;
+    if (state.hasError) return;
+
+    _isTogglingPlayback = true;
+    final wasPlaying = state.isPlaying;
+
+    try {
+      if (wasPlaying) {
+        await pause();
+      } else {
+        await play();
+      }
+    } finally {
+      _isTogglingPlayback = false;
+    }
   }
 
   Future<void> seek(Duration pos, {bool revealControls = true}) async {

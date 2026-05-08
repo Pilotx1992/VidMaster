@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// Compact top bar: back, title, up to a few [actions] (e.g. CC + More).
 class PlayerTopBar extends StatelessWidget {
   final String title;
   final VoidCallback onBack;
@@ -22,7 +23,7 @@ class PlayerTopBar extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.black.withValues(alpha: 0.82),
+              Colors.black.withValues(alpha: 0.75),
               Colors.black.withValues(alpha: 0.35),
               Colors.transparent,
             ],
@@ -31,11 +32,12 @@ class PlayerTopBar extends StatelessWidget {
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 4),
             child: Row(
               children: [
                 IconButton(
                   tooltip: 'Back',
+                  visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: onBack,
                 ),
@@ -46,7 +48,7 @@ class PlayerTopBar extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
