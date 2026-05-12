@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../../../di.dart';
+import '../../../video_player/presentation/providers/video_player_provider.dart';
 import '../../domain/entities/audio_track_entity.dart';
 import '../../domain/usecases/music_usecases.dart';
 
@@ -93,6 +94,7 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
   final AudioPlayer _player;
   final AudioHandler _audioHandler;
   final RecordMusicPlay _markAsPlayed;
+  final Ref _ref;
 
   Timer? _sleepTimer;
   Timer? _sleepCountdown;
@@ -106,11 +108,24 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
     required AudioPlayer player,
     required AudioHandler audioHandler,
     required RecordMusicPlay markAsPlayed,
+    required Ref ref,
   })  : _player = player,
         _audioHandler = audioHandler,
         _markAsPlayed = markAsPlayed,
+        _ref = ref,
         super(const MusicPlayerState()) {
     _subscribeToPlayer();
+  }
+
+  /// Symmetric counterpart of `VideoPlayerNotifier._pauseMusicIfPlaying`: when
+  /// the user starts (or resumes) a music track, any active video must yield
+  /// the audio output. Fire-and-forget; never blocks the music open path.
+  void _pauseVideoIfPlaying() {
+    try {
+      final videoState = _ref.read(videoPlayerProvider);
+      if (!videoState.isPlaying) return;
+      unawaited(_ref.read(videoPlayerProvider.notifier).pause());
+    } catch (_) {}
   }
 
   void _subscribeToPlayer() {
@@ -154,6 +169,7 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
       initialIndex: startIndex,
     );
 
+    _pauseVideoIfPlaying();
     await _player.play();
     state = state.copyWith(isLoading: false);
   }
@@ -167,8 +183,14 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
     await playQueue(q, startIndex: index < 0 ? 0 : index);
   }
 
-  Future<void> playPause() =>
-      state.isPlaying ? _player.pause() : _player.play();
+  Future<void> playPause() async {
+    if (state.isPlaying) {
+      await _player.pause();
+    } else {
+      _pauseVideoIfPlaying();
+      await _player.play();
+    }
+  }
 
   /// Stops playback and hides the mini player (clears current track + queue).
   Future<void> stopAndClear() async {
@@ -339,5 +361,6 @@ final musicPlayerProvider =
     player: player,
     audioHandler: handler,
     markAsPlayed: markPlayed,
+    ref: ref,
   );
 });

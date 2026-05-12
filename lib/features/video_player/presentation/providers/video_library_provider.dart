@@ -77,10 +77,15 @@ class VideoLibraryState {
           .toList();
     }
 
+    // Date sort = "date added/modified on device" (i.e. fileModifiedAt) so
+    // playing a video does NOT bump it to the top of the All-tab list. The
+    // Recent tab is the dedicated surface for play-order. Without this
+    // separation, the user sees the list reorder itself whenever a video is
+    // opened, which is the exact regression we're fixing.
     int cmp(VideoEntity a, VideoEntity b) => switch (sortOrder) {
           VideoSortOrder.name => a.fileName.compareTo(b.fileName),
-          VideoSortOrder.date => (a.lastPlayedAt ?? a.fileModifiedAt ?? DateTime(0))
-              .compareTo(b.lastPlayedAt ?? b.fileModifiedAt ?? DateTime(0)),
+          VideoSortOrder.date => (a.fileModifiedAt ?? DateTime(0))
+              .compareTo(b.fileModifiedAt ?? DateTime(0)),
           VideoSortOrder.size => a.fileSizeBytes.compareTo(b.fileSizeBytes),
           VideoSortOrder.duration => (a.durationMs ?? 0).compareTo(b.durationMs ?? 0),
         };
@@ -140,6 +145,8 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
   final GetFavouriteVideos _getFavorites;
   final ToggleFavourite _toggleFavorite;
   final RecordVideoPlay _markAsPlayed;
+  final ClearRecentlyPlayed _clearRecentlyPlayed;
+  final DeleteVideo _deleteVideo;
   final SavePlaybackPosition _savePosition;
   final GenerateThumbnail _generateThumbnail;
 
@@ -151,6 +158,8 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
     required GetFavouriteVideos getFavorites,
     required ToggleFavourite toggleFavorite,
     required RecordVideoPlay markAsPlayed,
+    required ClearRecentlyPlayed clearRecentlyPlayed,
+    required DeleteVideo deleteVideo,
     required SavePlaybackPosition savePosition,
     required GenerateThumbnail generateThumbnail,
   })  : _syncVideoLibrary = syncVideoLibrary,
@@ -160,6 +169,8 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
         _getFavorites = getFavorites,
         _toggleFavorite = toggleFavorite,
         _markAsPlayed = markAsPlayed,
+        _clearRecentlyPlayed = clearRecentlyPlayed,
+        _deleteVideo = deleteVideo,
         _savePosition = savePosition,
         _generateThumbnail = generateThumbnail,
         super(const VideoLibraryState());
@@ -310,8 +321,54 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
         positionMs: positionMs,
       ));
 
-  Future<void> markPlayed(String videoPath) =>
-      _markAsPlayed(RecordVideoPlayParams(videoPath: videoPath));
+  /// Records a play in the DB and refreshes the "Recent" tab in-place so the
+  /// user sees the video appear there without forcing a full library sync.
+  ///
+  /// Intentionally does NOT touch [state.videos]: the All-tab is sorted by
+  /// `fileModifiedAt` (see the comparator in [VideoLibraryState.displayVideos]),
+  /// so mutating `lastPlayedAt` on the master list would just be wasted work
+  /// — worse, it used to cause the visible reorder bug.
+  Future<void> markPlayed(String videoPath) async {
+    await _markAsPlayed(RecordVideoPlayParams(videoPath: videoPath));
+
+    final recentResult =
+        await _getRecentlyPlayed(const GetRecentlyPlayedParams());
+    final recent =
+        recentResult.fold((_) => state.recentlyPlayed, (r) => r);
+
+    state = state.copyWith(recentlyPlayed: recent);
+  }
+
+  /// Wipes the "Recent" history (DB + in-memory). The All-tab is left alone:
+  /// it's sorted by file date, so the user's library order is preserved.
+  /// Optimistically clears `recentlyPlayed` in state so the UI updates the
+  /// instant the menu item is tapped; if the DB write fails the list will
+  /// repopulate on the next library refresh.
+  Future<void> clearRecent() async {
+    state = state.copyWith(recentlyPlayed: const []);
+    await _clearRecentlyPlayed(const NoParams());
+  }
+
+  /// Deletes the file from disk and removes it from every in-memory list.
+  /// Returns `true` on success so the UI can show feedback. We update state
+  /// optimistically AFTER the repository call succeeds — if delete fails the
+  /// row stays so the user can retry.
+  Future<bool> deleteVideo(String videoPath) async {
+    final result = await _deleteVideo(DeleteVideoParams(filePath: videoPath));
+    final ok = result.fold((_) => false, (_) => true);
+    if (!ok) return false;
+
+    bool match(VideoEntity v) => v.filePath == videoPath;
+    final remaining = state.videos.where((v) => !match(v)).toList(growable: false);
+    state = state.copyWith(
+      videos: remaining,
+      totalBytes: remaining.fold<int>(0, (sum, v) => sum + v.fileSizeBytes),
+      recentlyPlayed:
+          state.recentlyPlayed.where((v) => !match(v)).toList(growable: false),
+      favorites: state.favorites.where((v) => !match(v)).toList(growable: false),
+    );
+    return true;
+  }
 
   Future<String?> getThumbnail(String videoPath) async {
     final result = await _generateThumbnail(GenerateThumbnailParams(videoPath: videoPath));
@@ -331,6 +388,8 @@ final videoLibraryProvider =
     getFavorites: ref.watch(getFavoriteVideosProvider),
     toggleFavorite: ref.watch(toggleVideoFavoriteProvider),
     markAsPlayed: ref.watch(markVideoAsPlayedProvider),
+    clearRecentlyPlayed: ref.watch(clearRecentlyPlayedVideosProvider),
+    deleteVideo: ref.watch(deleteVideoUseCaseProvider),
     savePosition: ref.watch(savePlaybackPositionProvider),
     generateThumbnail: ref.watch(generateThumbnailProvider),
   );

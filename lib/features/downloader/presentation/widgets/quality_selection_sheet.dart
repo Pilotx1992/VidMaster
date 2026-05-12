@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/extraction_result.dart';
 import '../../domain/entities/media_format.dart';
-import '../providers/social_downloader_provider.dart';
+import '../providers/downloader_provider.dart';
 
 class QualitySelectionSheet extends ConsumerWidget {
   final ExtractionResult result;
@@ -13,12 +13,12 @@ class QualitySelectionSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(socialDownloaderProvider.notifier);
+    final notifier = ref.read(downloaderProvider.notifier);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
-      maxChildSize:     0.95,
-      minChildSize:     0.5,
+      maxChildSize: 0.95,
+      minChildSize: 0.5,
       expand: false,
       builder: (context, controller) => Container(
         decoration: BoxDecoration(
@@ -32,10 +32,14 @@ class QualitySelectionSheet extends ConsumerWidget {
             // ── Handle ────────────────────────────────────
             Center(
               child: Container(
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant
+                      .withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -48,10 +52,12 @@ class QualitySelectionSheet extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(
                     imageUrl: result.thumbnailUrl!,
-                    width:    100, height: 75,
-                    fit:      BoxFit.cover,
+                    width: 100,
+                    height: 75,
+                    fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
                   ),
                 ),
@@ -63,15 +69,19 @@ class QualitySelectionSheet extends ConsumerWidget {
                     Text(result.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        )),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                )),
                     const SizedBox(height: 4),
                     if (result.duration != null)
                       Text(_formatDuration(result.duration!),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          )),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  )),
                   ],
                 ),
               ),
@@ -81,39 +91,49 @@ class QualitySelectionSheet extends ConsumerWidget {
             // ── Video Section ──────────────────────────────
             Text('Video Quality',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                )),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    )),
             const SizedBox(height: 12),
             Wrap(
-              spacing: 12, runSpacing: 12,
-              children: result.videoFormats.map((f) =>
-                  _FormatCard(format: f, onTap: () {
-                    Navigator.pop(context);
-                    notifier.startDownload(f);
-                  }),
-              ).toList(),
+              spacing: 12,
+              runSpacing: 12,
+              children: result.videoFormats
+                  .map(
+                    (f) => _FormatCard(
+                        format: f,
+                        onTap: () {
+                          Navigator.pop(context);
+                          notifier.startExtractedDownload(
+                              result: result, format: f);
+                        }),
+                  )
+                  .toList(),
             ),
             const SizedBox(height: 32),
 
             // ── Audio Section ──────────────────────────────
             Text('Audio Only',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                )),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    )),
             const SizedBox(height: 8),
             ...result.audioFormats.map((f) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.music_note, color: Theme.of(context).colorScheme.secondary),
-              title:   Text(f.note, style: const TextStyle(fontWeight: FontWeight.w500)),
-              trailing: Text(f.formattedSize,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              onTap: () {
-                Navigator.pop(context);
-                notifier.startDownload(f);
-              },
-            )),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.music_note,
+                      color: Theme.of(context).colorScheme.secondary),
+                  title: Text(f.note,
+                      style: const TextStyle(fontWeight: FontWeight.w500)),
+                  trailing: Text(f.formattedSize,
+                      style: TextStyle(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    notifier.startExtractedDownload(result: result, format: f);
+                  },
+                )),
           ],
         ),
       ),
@@ -129,7 +149,7 @@ class QualitySelectionSheet extends ConsumerWidget {
 }
 
 class _FormatCard extends StatelessWidget {
-  final MediaFormat  format;
+  final MediaFormat format;
   final VoidCallback onTap;
 
   const _FormatCard({required this.format, required this.onTap});
@@ -153,22 +173,27 @@ class _FormatCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(format.qualityLabel,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16)),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             Text(format.formattedSize,
-                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
+                style: TextStyle(
+                    color: colorScheme.onSurfaceVariant, fontSize: 12)),
             if (isDash)
               Container(
                 margin: const EdgeInsets.only(top: 4),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text('HD+', style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary, 
-                    fontWeight: FontWeight.bold, 
-                    fontSize: 10)),
+                child: Text('HD+',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10)),
               ),
           ],
         ),

@@ -31,8 +31,7 @@ final class AuthenticateVaultUserParams {
 // ─────────────────────────────────────────────────────────────────────────
 
 /// Checks if the vault is currently in an unlocked state.
-final class CheckVaultUnlocked
-    implements UseCase<bool, NoParams> {
+final class CheckVaultUnlocked implements UseCase<bool, NoParams> {
   final VaultRepository _repository;
   const CheckVaultUnlocked(this._repository);
 
@@ -62,8 +61,7 @@ final class LockVault implements UseCase<void, NoParams> {
 
 /// Returns remaining PIN attempts before lockout.
 /// Returns null if no attempt counter is active.
-final class GetRemainingAttempts
-    implements UseCase<int?, NoParams> {
+final class GetRemainingAttempts implements UseCase<int?, NoParams> {
   final VaultRepository _repository;
   const GetRemainingAttempts(this._repository);
 
@@ -76,7 +74,7 @@ final class GetRemainingAttempts
 // ENCRYPT & MOVE TO VAULT
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Encrypts a file and moves it into the secure vault.
+/// Moves a file into the current vault storage.
 ///
 /// The source file is securely deleted after successful encryption.
 /// Shows progress via [WatchEncryptionProgress] use case if needed.
@@ -87,7 +85,7 @@ final class EncryptAndMoveToVault
 
   @override
   Future<Either<Failure, EncryptedFileMetadata>> call(
-      EncryptAndMoveToVaultParams params) =>
+          EncryptAndMoveToVaultParams params) =>
       _repository.encryptAndMoveToVault(
         sourceFilePath: params.sourceFilePath,
         userPin: params.userPin,
@@ -115,8 +113,7 @@ final class WatchEncryptionProgress
   const WatchEncryptionProgress(this._repository);
 
   @override
-  Stream<Either<Failure, double>> call(
-      WatchEncryptionProgressParams params) =>
+  Stream<Either<Failure, double>> call(WatchEncryptionProgressParams params) =>
       _repository.encryptionProgress(params.sourceFilePath);
 }
 
@@ -139,7 +136,7 @@ final class DecryptAndRestoreFromVault
 
   @override
   Future<Either<Failure, String>> call(
-      DecryptAndRestoreFromVaultParams params) =>
+          DecryptAndRestoreFromVaultParams params) =>
       _repository.decryptAndRestoreFromVault(
         metadata: params.metadata,
         userPin: params.userPin,
@@ -164,8 +161,7 @@ final class WatchDecryptionProgress
   const WatchDecryptionProgress(this._repository);
 
   @override
-  Stream<Either<Failure, double>> call(
-      WatchDecryptionProgressParams params) =>
+  Stream<Either<Failure, double>> call(WatchDecryptionProgressParams params) =>
       _repository.decryptionProgress(params.encFileName);
 }
 
@@ -185,8 +181,7 @@ final class GetVaultItems
   const GetVaultItems(this._repository);
 
   @override
-  Future<Either<Failure, List<EncryptedFileMetadata>>> call(
-      NoParams params) =>
+  Future<Either<Failure, List<EncryptedFileMetadata>>> call(NoParams params) =>
       _repository.getVaultItems();
 }
 
@@ -242,8 +237,7 @@ final class PermanentlyDeleteFromVault
   const PermanentlyDeleteFromVault(this._repository);
 
   @override
-  Future<Either<Failure, void>> call(
-      PermanentlyDeleteFromVaultParams params) =>
+  Future<Either<Failure, void>> call(PermanentlyDeleteFromVaultParams params) =>
       _repository.permanentlyDeleteFromVault(params.metadataId);
 }
 

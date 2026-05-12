@@ -1,4 +1,5 @@
 import java.util.Base64
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -25,6 +26,36 @@ if (isExperimentalBuild) {
     apply(plugin = "com.chaquo.python")
 }
 
+val releaseSigningPropsFile = listOf(
+    rootProject.file("key.properties"),
+    file("key.properties")
+).firstOrNull { it.exists() }
+
+val releaseSigningProps = Properties().apply {
+    releaseSigningPropsFile?.inputStream()?.use { load(it) }
+}
+
+fun releaseSigningValue(key: String): String? =
+    releaseSigningProps.getProperty(key)?.takeIf { it.isNotBlank() }
+
+val hasReleaseSigningConfig = listOf(
+    "storeFile",
+    "storePassword",
+    "keyAlias",
+    "keyPassword"
+).all { releaseSigningValue(it) != null }
+
+val isReleaseTask =
+    gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+
+if (isReleaseTask && !hasReleaseSigningConfig) {
+    throw GradleException(
+        "Release signing is not configured. Copy android/key.properties.example to android/key.properties " +
+            "and set storeFile, storePassword, keyAlias, and keyPassword (never commit key.properties). " +
+            "Refusing to sign release builds with debug keys."
+    )
+}
+
 android {
     namespace = "com.vidmaster.app"
     compileSdk = 34
@@ -41,14 +72,23 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.vidmaster.app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 26
         targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                val storeFilePath = releaseSigningValue("storeFile")!!
+                storeFile = rootProject.file(storeFilePath)
+                storePassword = releaseSigningValue("storePassword")!!
+                keyAlias = releaseSigningValue("keyAlias")!!
+                keyPassword = releaseSigningValue("keyPassword")!!
+            }
+        }
     }
 
     flavorDimensions += "channel"
@@ -67,9 +107,9 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             
             // Enable minification and resource shrinking for smaller builds
             isMinifyEnabled = true
@@ -81,7 +121,9 @@ android {
 
 plugins.withId("com.chaquo.python") {
     // Only enabled on Experimental builds via isExperimentalBuild above.
-    val pythonPath = System.getenv("VIDMASTER_PYTHON")
+    val pythonPath = (findProperty("vidmasterPython") as String?)
+        ?.takeIf { it.isNotBlank() }
+        ?: System.getenv("VIDMASTER_PYTHON")
 
     android.defaultConfig.ndk {
         abiFilters += listOf("armeabi-v7a", "arm64-v8a")

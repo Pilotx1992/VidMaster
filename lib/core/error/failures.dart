@@ -35,8 +35,7 @@ final class StoragePermissionFailure extends Failure {
 /// The requested file does not exist at the given path.
 final class FileNotFoundFailure extends Failure {
   final String path;
-  const FileNotFoundFailure(this.path)
-      : super('File not found: $path');
+  const FileNotFoundFailure(this.path) : super('File not found: $path');
 }
 
 /// A file system I/O operation failed (read, write, delete, rename).
@@ -67,7 +66,7 @@ final class VaultLockedFailure extends Failure {
             'Vault locked for ${lockDuration.inMinutes} minutes after too many failed attempts.');
 }
 
-/// AES encryption or decryption operation failed.
+/// Vault file transform operation failed.
 final class EncryptionFailure extends Failure {
   const EncryptionFailure(super.message, {super.stackTrace});
 }

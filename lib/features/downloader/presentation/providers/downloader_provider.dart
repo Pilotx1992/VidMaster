@@ -10,8 +10,12 @@ import '../../../../core/usecase/usecase.dart';
 import '../../../../di.dart';
 import '../../domain/entities/download_task_entity.dart';
 import '../../domain/entities/download_url_info.dart';
+import '../../domain/entities/extraction_result.dart';
+import '../../domain/entities/media_format.dart';
+import '../../domain/repositories/download_repository.dart';
 import '../../domain/usecases/download_usecases.dart';
 import '../../application/use_cases/merge_streams_use_case.dart';
+import '../../application/use_cases/start_download_use_case.dart';
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -19,7 +23,7 @@ class DownloaderState {
   final List<DownloadTaskEntity> tasks;
   final bool isLoading;
   final String? errorMessage;
-  final DownloadUrlInfo? probedUrl;     // Result of last URL probe
+  final DownloadUrlInfo? probedUrl; // Result of last URL probe
   final bool isProbing;
 
   const DownloaderState({
@@ -71,6 +75,9 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
   final GetAllDownloads _getAllDownloads;
   final DeleteDownloadRecord _deleteDownload;
   final MergeStreamsUseCase _mergeStreams;
+  final StartDownloadUseCase _startExtractedDownload;
+  final DownloadRepository _taskRepository;
+  final Set<String> _mergingTaskIds = {};
 
   // flutter_downloader communicates via a background isolate.
   // We use IsolateNameServer and ReceivePort to route updates to the UI thread.
@@ -86,6 +93,8 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
     required GetAllDownloads getAllDownloads,
     required DeleteDownloadRecord deleteDownload,
     required MergeStreamsUseCase mergeStreams,
+    required StartDownloadUseCase startExtractedDownload,
+    required DownloadRepository taskRepository,
   })  : _probeUrl = probeUrl,
         _startDownload = startDownload,
         _pauseDownload = pauseDownload,
@@ -95,6 +104,8 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
         _getAllDownloads = getAllDownloads,
         _deleteDownload = deleteDownload,
         _mergeStreams = mergeStreams,
+        _startExtractedDownload = startExtractedDownload,
+        _taskRepository = taskRepository,
         super(const DownloaderState()) {
     _initDownloaderCommunication();
     loadDownloads();
@@ -104,8 +115,9 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
 
   void _initDownloaderCommunication() {
     IsolateNameServer.removePortNameMapping('downloader_send_port');
-    IsolateNameServer.registerPortWithName(_port.sendPort, 'downloader_send_port');
-    
+    IsolateNameServer.registerPortWithName(
+        _port.sendPort, 'downloader_send_port');
+
     _port.listen((dynamic data) {
       if (data is List && data.length == 3) {
         final id = data[0] as String;
@@ -122,7 +134,8 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
   /// Runs on a background isolate, so we use a SendPort to notify the main thread.
   @pragma('vm:entry-point')
   static void _downloaderCallback(String id, int status, int progress) {
-    final SendPort? send = IsolateNameServer.lookupPortByName('downloader_send_port');
+    final SendPort? send =
+        IsolateNameServer.lookupPortByName('downloader_send_port');
     send?.send([id, status, progress]);
   }
 
@@ -130,11 +143,13 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
     if (!mounted) return;
 
     final dlStatus = _mapStatus(statusCode);
-    
+
     // 1. Identify which logical task this update belongs to
     DownloadTaskEntity? targetTask;
     for (final t in state.tasks) {
-      if (t.taskId == taskId || t.videoTaskId == taskId || t.audioTaskId == taskId) {
+      if (t.taskId == taskId ||
+          t.videoTaskId == taskId ||
+          t.audioTaskId == taskId) {
         targetTask = t;
         break;
       }
@@ -143,9 +158,10 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
     if (targetTask == null) return;
 
     // 2. Update status and progress
+    DownloadTaskEntity? updatedTarget;
     final updated = state.tasks.map((t) {
       if (t.taskId != targetTask!.taskId) return t;
-      
+
       // For DASH, calculate aggregate progress
       // (Simplification: just use the lowest progress of the two streams)
       int finalProgress = progress;
@@ -155,44 +171,61 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
         // A better way would be to query native tasks for both.
       }
 
-      return t.copyWith(
-        status: dlStatus == DownloadStatus.completed && t.engine == DownloadEngineType.ffmpeg
-            ? DownloadStatus.running // Keep 'running' until merge is triggered
-            : dlStatus,
+      final effectiveStatus = dlStatus == DownloadStatus.completed &&
+              t.engine == DownloadEngineType.ffmpeg
+          ? DownloadStatus.running // Keep 'running' until merge is triggered
+          : dlStatus;
+      updatedTarget = t.copyWith(
+        status: effectiveStatus,
         progressPercent: finalProgress,
-        completedAt: dlStatus == DownloadStatus.completed ? DateTime.now() : null,
+        completedAt:
+            effectiveStatus == DownloadStatus.completed ? DateTime.now() : null,
       );
+      return updatedTarget!;
     }).toList();
 
     state = state.copyWith(tasks: updated);
+    if (updatedTarget != null) {
+      unawaited(_taskRepository.update(updatedTarget!));
+    }
 
     // 3. Trigger DASH merge if both streams are done
-    if (dlStatus == DownloadStatus.completed && targetTask.engine == DownloadEngineType.ffmpeg) {
+    if (dlStatus == DownloadStatus.completed &&
+        targetTask.engine == DownloadEngineType.ffmpeg) {
       _checkAndTriggerMerge(targetTask.taskId);
     }
   }
 
   Future<void> _checkAndTriggerMerge(String logicalId) async {
+    if (_mergingTaskIds.contains(logicalId)) return;
+
     // We need to fetch the latest native statuses for both sub-tasks
     final nativeTasks = await FlutterDownloader.loadTasks();
     if (nativeTasks == null) return;
 
-    final task = state.tasks.firstWhere((t) => t.taskId == logicalId);
+    final task = _findTaskByAnyId(logicalId);
+    if (task == null) return;
     if (task.videoTaskId == null || task.audioTaskId == null) return;
 
-    final videoNative = nativeTasks.firstWhere((n) => n.taskId == task.videoTaskId);
-    final audioNative = nativeTasks.firstWhere((n) => n.taskId == task.audioTaskId);
+    final videoNative = _findNativeTask(nativeTasks, task.videoTaskId);
+    final audioNative = _findNativeTask(nativeTasks, task.audioTaskId);
+    if (videoNative == null || audioNative == null) {
+      debugPrint('[Orchestrator] DASH child task missing for $logicalId');
+      _updateTaskStatus(logicalId, DownloadStatus.failed);
+      return;
+    }
 
-    if (videoNative.status == DownloadTaskStatus.complete && 
+    if (videoNative.status == DownloadTaskStatus.complete &&
         audioNative.status == DownloadTaskStatus.complete) {
-      
+      _mergingTaskIds.add(logicalId);
+
       // Update status to merging
       _updateTaskStatus(logicalId, DownloadStatus.merging);
 
       try {
         final ext = task.fileName.split('.').last;
         final title = task.fileName.replaceAll('.$ext', '');
-        
+
         await _mergeStreams(
           videoTempPath: '${videoNative.savedDir}/${videoNative.filename}',
           audioTempPath: '${audioNative.savedDir}/${audioNative.filename}',
@@ -201,14 +234,17 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
         );
 
         _updateTaskStatus(logicalId, DownloadStatus.completed);
-        
-        // Final cleanup of native tasks from flutter_downloader
-        await FlutterDownloader.remove(taskId: task.videoTaskId!, shouldDeleteContent: false);
-        await FlutterDownloader.remove(taskId: task.audioTaskId!, shouldDeleteContent: false);
 
+        // Final cleanup of native tasks from flutter_downloader
+        await FlutterDownloader.remove(
+            taskId: task.videoTaskId!, shouldDeleteContent: false);
+        await FlutterDownloader.remove(
+            taskId: task.audioTaskId!, shouldDeleteContent: false);
       } catch (e) {
         debugPrint('[Orchestrator] Merge failed: $e');
         _updateTaskStatus(logicalId, DownloadStatus.failed);
+      } finally {
+        _mergingTaskIds.remove(logicalId);
       }
     }
   }
@@ -225,7 +261,8 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
   }
 
   Future<void> probeUrl(String url) async {
-    state = state.copyWith(isProbing: true, clearProbed: true, clearError: true);
+    state =
+        state.copyWith(isProbing: true, clearProbed: true, clearError: true);
     final result = await _probeUrl(ValidateDownloadUrlParams(url: url));
     result.fold(
       (f) => state = state.copyWith(isProbing: false, errorMessage: f.message),
@@ -240,10 +277,10 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
   }) async {
     // On Windows, getExternalStorageDirectory() usually returns null.
     // We should use getDownloadsDirectory() or getApplicationDocumentsDirectory() as a fallback.
-    final dir = await getExternalStorageDirectory() ?? 
-                await getDownloadsDirectory() ?? 
-                await getApplicationDocumentsDirectory();
-    
+    final dir = await getExternalStorageDirectory() ??
+        await getDownloadsDirectory() ??
+        await getApplicationDocumentsDirectory();
+
     final path = '${dir.path}/VidMaster';
 
     final result = await _startDownload(StartDownloadParams(
@@ -268,27 +305,49 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
     );
   }
 
+  Future<bool> startExtractedDownload({
+    required ExtractionResult result,
+    required MediaFormat format,
+  }) async {
+    try {
+      final task = await _startExtractedDownload(
+        result: result,
+        format: format,
+      );
+      state = state.copyWith(
+        tasks: [task, ...state.tasks],
+        clearProbed: true,
+        clearError: true,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to start download: $e');
+      return false;
+    }
+  }
+
   Future<void> pauseDownload(String taskId) async {
-    final result = await _pauseDownload(TaskIdParams(taskId: taskId));
-    result.fold(
-      (f) => state = state.copyWith(errorMessage: f.message),
-      (_) => _updateTaskStatus(taskId, DownloadStatus.paused),
+    await _forEachNativeTaskId(
+      taskId,
+      (nativeId) => _pauseDownload(TaskIdParams(taskId: nativeId)),
+      DownloadStatus.paused,
     );
   }
 
   Future<void> resumeDownload(String taskId) async {
-    final result = await _resumeDownload(TaskIdParams(taskId: taskId));
-    result.fold(
-      (f) => state = state.copyWith(errorMessage: f.message),
-      (_) => _updateTaskStatus(taskId, DownloadStatus.running),
+    await _forEachNativeTaskId(
+      taskId,
+      (nativeId) => _resumeDownload(TaskIdParams(taskId: nativeId)),
+      DownloadStatus.running,
+      reloadAfterSuccess: true,
     );
   }
 
   Future<void> cancelDownload(String taskId) async {
-    final result = await _cancelDownload(TaskIdParams(taskId: taskId));
-    result.fold(
-      (f) => state = state.copyWith(errorMessage: f.message),
-      (_) => _updateTaskStatus(taskId, DownloadStatus.cancelled),
+    await _forEachNativeTaskId(
+      taskId,
+      (nativeId) => _cancelDownload(TaskIdParams(taskId: nativeId)),
+      DownloadStatus.cancelled,
     );
   }
 
@@ -323,10 +382,80 @@ class DownloaderNotifier extends StateNotifier<DownloaderState> {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  Future<void> _forEachNativeTaskId(
+    String taskId,
+    Future<dynamic> Function(String nativeId) action,
+    DownloadStatus successStatus, {
+    bool reloadAfterSuccess = false,
+  }) async {
+    final task = _findTaskByAnyId(taskId);
+    if (task == null) {
+      state = state.copyWith(errorMessage: 'Download task not found: $taskId');
+      return;
+    }
+
+    var hadFailure = false;
+    for (final nativeId in _nativeTaskIdsFor(task)) {
+      final result = await action(nativeId);
+      result.fold(
+        (f) {
+          hadFailure = true;
+          state = state.copyWith(errorMessage: f.message);
+        },
+        (_) {},
+      );
+    }
+
+    if (!hadFailure) {
+      if (reloadAfterSuccess) {
+        await loadDownloads();
+      } else {
+        _updateTaskStatus(task.taskId, successStatus);
+      }
+    }
+  }
+
+  DownloadTaskEntity? _findTaskByAnyId(String taskId) {
+    for (final task in state.tasks) {
+      if (task.taskId == taskId ||
+          task.videoTaskId == taskId ||
+          task.audioTaskId == taskId) {
+        return task;
+      }
+    }
+    return null;
+  }
+
+  List<String> _nativeTaskIdsFor(DownloadTaskEntity task) {
+    if (task.engine == DownloadEngineType.ffmpeg &&
+        task.videoTaskId != null &&
+        task.audioTaskId != null) {
+      return [task.videoTaskId!, task.audioTaskId!];
+    }
+    return [task.taskId];
+  }
+
+  DownloadTask? _findNativeTask(List<DownloadTask> tasks, String? taskId) {
+    if (taskId == null) return null;
+    for (final task in tasks) {
+      if (task.taskId == taskId) return task;
+    }
+    return null;
+  }
+
   void _updateTaskStatus(String taskId, DownloadStatus status) {
     final updated = state.tasks.map((t) {
-      if (t.taskId != taskId) return t;
-      return t.copyWith(status: status);
+      if (t.taskId != taskId &&
+          t.videoTaskId != taskId &&
+          t.audioTaskId != taskId) {
+        return t;
+      }
+      final updatedTask = t.copyWith(
+        status: status,
+        completedAt: status == DownloadStatus.completed ? DateTime.now() : null,
+      );
+      unawaited(_taskRepository.update(updatedTask));
+      return updatedTask;
     }).toList();
     state = state.copyWith(tasks: updated);
   }
@@ -361,5 +490,7 @@ final downloaderProvider =
     getAllDownloads: ref.watch(getAllDownloadsProvider),
     deleteDownload: ref.watch(deleteDownloadProvider),
     mergeStreams: ref.watch(mergeStreamsUseCaseProvider),
+    startExtractedDownload: ref.watch(startDownloadUseCaseProvider),
+    taskRepository: ref.watch(downloadTaskRepositoryProvider),
   );
 });

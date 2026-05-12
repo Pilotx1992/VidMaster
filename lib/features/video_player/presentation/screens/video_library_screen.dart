@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:io';
+
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/states/states.dart';
@@ -10,6 +13,7 @@ import '../../domain/entities/video_entity.dart';
 import '../../domain/entities/video_file.dart';
 import 'video_player_screen.dart' show VideoPlayerArgs;
 import '../providers/video_library_provider.dart';
+import '../widgets/video_actions_sheet.dart';
 import '../widgets/video_thumbnail_card.dart';
 
 /// Derived (memoized) queue for the current view (after search + sort).
@@ -104,10 +108,19 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
               : const Text('Videos'),
           actions: [
             IconButton(
-              icon: const Icon(Icons.sync),
-              tooltip: 'Sync with Device',
-              onPressed: () =>
-                  ref.read(videoLibraryProvider.notifier).loadLibrary(forceSync: true),
+              icon: const Icon(Icons.cast),
+              tooltip: 'Cast',
+              onPressed: () {
+                ScaffoldMessenger.of(context)
+                  ..clearSnackBars()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('Cast — coming soon'),
+                      behavior: SnackBarBehavior.floating,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+              },
             ),
             IconButton(
               icon: Icon(isSearchMode ? Icons.close : Icons.search),
@@ -122,12 +135,68 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
             ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'downloads', child: Text('Downloads')),
-                PopupMenuItem(value: 'settings', child: Text('Settings')),
-              ],
-              onSelected: (v) {
+              itemBuilder: (context) {
+                // Disable "Clear recent" when there's nothing to clear so the
+                // user doesn't tap it on an empty state and wonder if it did
+                // anything. Re-read here (not from the outer scope) so the
+                // item updates the next time the menu opens.
+                final hasRecent = ref
+                    .read(videoLibraryProvider)
+                    .recentlyPlayed
+                    .isNotEmpty;
+                return [
+                  const PopupMenuItem(
+                    value: 'sync',
+                    child: Row(
+                      children: [
+                        Icon(Icons.sync, size: 20),
+                        SizedBox(width: 12),
+                        Text('Sync with device'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'clear_recent',
+                    enabled: hasRecent,
+                    child: const Text('Clear recent'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'downloads',
+                    child: Text('Downloads'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'settings',
+                    child: Text('Settings'),
+                  ),
+                ];
+              },
+              onSelected: (v) async {
                 switch (v) {
+                  case 'sync':
+                    await ref
+                        .read(videoLibraryProvider.notifier)
+                        .loadLibrary(forceSync: true);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Library synced'),
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    break;
+                  case 'clear_recent':
+                    await ref
+                        .read(videoLibraryProvider.notifier)
+                        .clearRecent();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Recent history cleared'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    break;
                   case 'downloads':
                     context.push(AppRoutes.downloads);
                     break;
@@ -347,6 +416,46 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
       }
     }
 
+    // Freeze the queue once per build so every row in this rebuild pushes the
+    // SAME immutable snapshot to /player. Without this, the player notifier's
+    // captured queue could in principle drift if the underlying provider
+    // recomputed between tap and push (e.g. a background sync updating
+    // `displayVideos`). `List.unmodifiable` also throws on accidental
+    // mutation, which is the contract `VideoPlayerArgs.queue` assumes.
+    final queueSnapshot = List<VideoFile>.unmodifiable(queueFiles);
+    // Snapshot the active sort + tab for the diagnostic logs only; the read
+    // is otherwise unused so we don't pay for it in release builds.
+    final libState = ref.read(videoLibraryProvider);
+
+    void diagPush(int index) {
+      if (!kDebugMode) return;
+      final tapped = queueSnapshot[index];
+      final firstNames = queueSnapshot
+          .take(10)
+          .map((v) => v.name)
+          .join(' | ');
+      // Print the date keys that drive the Date sort so we can see whether
+      // any items have null `fileModifiedAt` (= the historical bug surface).
+      final firstDates = displayVideos
+          .take(10)
+          .map((v) =>
+              '${v.fileName}=fm:${v.fileModifiedAt?.toIso8601String() ?? "null"} '
+              'lp:${v.lastPlayedAt?.toIso8601String() ?? "null"}')
+          .join(' || ');
+      debugPrint(
+        '[QueuePush] sort=${libState.sortOrder.name} asc=${libState.sortAscending} '
+        'tab=${libState.activeTab.name} tappedIndex=$index tapped=${tapped.name}',
+      );
+      debugPrint('[QueuePush] queue.names=$firstNames');
+      debugPrint('[QueuePush] dates=$firstDates');
+      debugPrint(
+        '[QueuePush] queueLen=${queueSnapshot.length} '
+        'displayLen=${displayVideos.length} '
+        'sameLength=${queueSnapshot.length == displayVideos.length} '
+        'queueIdentity=${identityHashCode(queueSnapshot)}',
+      );
+    }
+
     if (isGridView) {
       return [
         SliverPadding(
@@ -363,14 +472,17 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
                 key: ValueKey(displayVideos[index].filePath),
                 video: displayVideos[index],
                 onTap: () {
+                  diagPush(index);
                   context.push(
                     AppRoutes.player,
-                    extra: VideoPlayerArgs(video: queueFiles[index], queue: queueFiles),
+                    extra: VideoPlayerArgs(
+                      video: queueSnapshot[index],
+                      queue: queueSnapshot,
+                    ),
                   );
                 },
-                onFavorite: () => ref
-                    .read(videoLibraryProvider.notifier)
-                    .toggleFavorite(displayVideos[index].filePath),
+                onMore: () =>
+                    _openVideoActions(context, displayVideos[index]),
               ),
               childCount: displayVideos.length,
             ),
@@ -390,15 +502,16 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
                 key: ValueKey(v.filePath),
                 video: v,
                 onTap: () {
+                  diagPush(index);
                   context.push(
                     AppRoutes.player,
-                    extra:
-                        VideoPlayerArgs(video: queueFiles[index], queue: queueFiles),
+                    extra: VideoPlayerArgs(
+                      video: queueSnapshot[index],
+                      queue: queueSnapshot,
+                    ),
                   );
                 },
-                onFavorite: () => ref
-                    .read(videoLibraryProvider.notifier)
-                    .toggleFavorite(v.filePath),
+                onMore: () => _openVideoActions(context, v),
               );
             },
             childCount: displayVideos.length,
@@ -406,6 +519,189 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
         ),
       ),
     ];
+  }
+
+  // ── 3-dot action sheet ────────────────────────────────────────────────────
+  //
+  // The "Lock in Private Folder", "Convert to MP3" and "Add to playlist"
+  // actions land on snackbars for now because they need bigger plumbing
+  // (PIN dialog + vault import / FFmpeg pipeline / video-playlist data model).
+  // The first three are intentionally stubbed so the sheet UX is complete and
+  // each action is wired to its eventual home.
+  void _openVideoActions(BuildContext context, VideoEntity video) {
+    VideoActionsSheet.show(
+      context,
+      video: video,
+      onLockVault: () => _showComingSoon(context, 'Lock in Private Folder'),
+      onConvertMp3: () => _showComingSoon(context, 'Convert to MP3'),
+      onAddToPlaylist: () => _showComingSoon(context, 'Add to playlist'),
+      onDelete: () => _handleDelete(context, video),
+      onShare: () => _handleShare(context, video),
+      onRename: () => _showComingSoon(context, 'Rename'),
+      onProperties: () => _showPropertiesDialog(context, video),
+    );
+  }
+
+  void _showComingSoon(BuildContext context, String label) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('$label — coming soon'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  Future<void> _handleShare(
+    BuildContext context,
+    VideoEntity video,
+  ) async {
+    final file = File(video.filePath);
+    if (!await file.exists()) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('File not found'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    try {
+      await Share.shareXFiles(
+        [XFile(video.filePath)],
+        subject: video.fileName,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Share failed: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleDelete(
+    BuildContext context,
+    VideoEntity video,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete video?'),
+        content: Text(
+          'This will permanently remove\n"${video.fileName}"\nfrom your device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+
+    final ok = await ref
+        .read(videoLibraryProvider.notifier)
+        .deleteVideo(video.filePath);
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Video deleted' : 'Failed to delete video'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showPropertiesDialog(BuildContext context, VideoEntity video) {
+    final modified = video.fileModifiedAt;
+    final resolution = (video.resolution ?? '').isEmpty ? '—' : video.resolution!;
+    final duration = video.formattedDuration;
+    final size = video.formattedSize;
+    final modifiedLabel = modified == null
+        ? '—'
+        : '${modified.year}-${modified.month.toString().padLeft(2, '0')}-'
+            '${modified.day.toString().padLeft(2, '0')} '
+            '${modified.hour.toString().padLeft(2, '0')}:'
+            '${modified.minute.toString().padLeft(2, '0')}';
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Properties'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _PropertyRow(label: 'Name', value: video.fileName),
+              _PropertyRow(label: 'Folder', value: video.folderName),
+              _PropertyRow(label: 'Path', value: video.filePath),
+              _PropertyRow(label: 'Size', value: size),
+              _PropertyRow(label: 'Duration', value: duration),
+              _PropertyRow(label: 'Resolution', value: resolution),
+              _PropertyRow(
+                label: 'Format',
+                value: video.extension.toUpperCase(),
+              ),
+              _PropertyRow(label: 'Date', value: modifiedLabel),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PropertyRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _PropertyRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: cs.onSurfaceVariant,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          SelectableText(
+            value,
+            style: TextStyle(color: cs.onSurface, fontSize: 13),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -700,13 +996,13 @@ extension on _VideoLibraryScreenState {
 class _XPlayerListRow extends ConsumerWidget {
   final VideoEntity video;
   final VoidCallback onTap;
-  final VoidCallback onFavorite;
+  final VoidCallback onMore;
 
   const _XPlayerListRow({
     super.key,
     required this.video,
     required this.onTap,
-    required this.onFavorite,
+    required this.onMore,
   });
 
   @override
@@ -715,7 +1011,12 @@ class _XPlayerListRow extends ConsumerWidget {
     final subtitle = video.resolution != null && video.resolution!.isNotEmpty
         ? '${video.extension.toUpperCase()} (${video.resolution})'
         : video.extension.toUpperCase();
-    final date = _formatShortDate(video.lastPlayedAt ?? video.fileModifiedAt);
+    // Date label = the file's arrival date on this device (`fileModifiedAt`).
+    // We intentionally do NOT fall back to `lastPlayedAt` — that would make
+    // the label drift on every playback while the row itself stays put under
+    // the Date sort key (which is also `fileModifiedAt`). The Recent tab is
+    // the dedicated surface for "when did I last watch this".
+    final date = _formatShortDate(video.fileModifiedAt);
 
     return InkWell(
       onTap: onTap,
@@ -761,15 +1062,15 @@ class _XPlayerListRow extends ConsumerWidget {
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
                     icon: Icon(
-                      video.isFavourite ? Icons.favorite : Icons.favorite_border,
-                      color: video.isFavourite
-                          ? const Color(0xFFF9A825)
-                          : cs.onSurfaceVariant,
+                      Icons.more_vert,
+                      color: cs.onSurfaceVariant,
                       size: 22,
                     ),
-                    onPressed: onFavorite,
+                    tooltip: 'More',
+                    onPressed: onMore,
                   ),
                   if (date.isNotEmpty)
                     Padding(

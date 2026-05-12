@@ -8,18 +8,27 @@ class PlayerSubtitleTrackMenu extends StatelessWidget {
   final VideoPlayerState state;
   final VideoPlayerNotifier notifier;
 
+  /// Custom tap target. When provided the menu uses this widget as its
+  /// trigger (mirrors [PlayerSpeedMenuButton.menuChild]); when null we fall
+  /// back to the default closed-caption icon so the top-bar usage is
+  /// unchanged.
+  final Widget? menuChild;
+
   const PlayerSubtitleTrackMenu({
     super.key,
     required this.state,
     required this.notifier,
+    this.menuChild,
   });
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<SubtitleTrack>(
       tooltip: 'Subtitle tracks',
-      icon: const Icon(Icons.closed_caption, color: Colors.white),
       onSelected: notifier.setSubtitleTrack,
+      icon: menuChild == null
+          ? const Icon(Icons.closed_caption, color: Colors.white)
+          : null,
       itemBuilder: (context) => [
         if (state.availableSubtitleTracks.isEmpty)
           const PopupMenuItem<SubtitleTrack>(
@@ -37,6 +46,7 @@ class PlayerSubtitleTrackMenu extends StatelessWidget {
             );
           }),
       ],
+      child: menuChild,
     );
   }
 }

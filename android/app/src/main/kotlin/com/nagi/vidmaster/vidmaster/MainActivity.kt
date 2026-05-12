@@ -20,14 +20,9 @@ class MainActivity : AudioServiceActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, STORAGE_CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "getAvailableBytes") {
                 try {
-                    val path = getExternalFilesDir(null)
-                    val stat = android.os.StatFs(path?.path)
-                    val bytesAvailable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-                        stat.availableBlocksLong * stat.blockSizeLong
-                    } else {
-                        stat.availableBlocks.toLong() * stat.blockSize.toLong()
-                    }
-                    result.success(bytesAvailable)
+                    val path = getExternalFilesDir(null) ?: filesDir
+                    val stat = android.os.StatFs(path.path)
+                    result.success(stat.availableBytes)
                 } catch (e: Exception) {
                     result.error("STORAGE_ERROR", e.message, null)
                 }
@@ -90,11 +85,12 @@ class MainActivity : AudioServiceActivity() {
                     val module = python.javaClass
                         .getMethod("getModule", String::class.java)
                         .invoke(python, "ytdlp_bridge")
-                    val callAttr = module.javaClass.methods.first {
+                        ?: throw IllegalStateException("Unable to load ytdlp_bridge module")
+                    val callAttr = module.javaClass.methods.firstOrNull {
                         it.name == "callAttr" && it.parameterTypes.size == 2
-                    }
+                    } ?: throw IllegalStateException("Chaquopy callAttr bridge is unavailable")
                     val response = callAttr.invoke(module, "fetch_metadata", arrayOf(url))
-                    result.success(response.toString())
+                    result.success(response?.toString() ?: "")
                 } catch (e: ClassNotFoundException) {
                     result.error("YTDLP_UNAVAILABLE", "yt-dlp is only available in experimental builds.", null)
                 } catch (e: Exception) {

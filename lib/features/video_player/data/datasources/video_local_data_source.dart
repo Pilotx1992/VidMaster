@@ -13,6 +13,14 @@ abstract interface class VideoLocalDataSource {
   
   Future<List<VideoModel>> getFavouriteVideos();
   Future<List<VideoModel>> getRecentlyPlayed({required int limit});
+
+  /// Clears `lastPlayedAt` on every non-vault row so the Recent tab is empty
+  /// and the date label falls back to the file date. Play count is preserved
+  /// because the user may want to keep "most played" semantics later.
+  Future<void> clearRecentlyPlayed();
+
+  /// Removes the row keyed by [filePath]. No-op when no such row exists.
+  Future<void> deleteVideoByPath(String filePath);
 }
 
 /// Isar implementation of the local data source.
@@ -85,5 +93,36 @@ class VideoLocalDataSourceImpl implements VideoLocalDataSource {
         .sortByLastPlayedAtDesc()
         .limit(limit)
         .findAll();
+  }
+
+  @override
+  Future<void> deleteVideoByPath(String filePath) async {
+    final model = await isar.videoModels
+        .filter()
+        .filePathEqualTo(filePath)
+        .findFirst();
+    if (model == null) return;
+    await isar.writeTxn(() async {
+      await isar.videoModels.delete(model.id);
+    });
+  }
+
+  @override
+  Future<void> clearRecentlyPlayed() async {
+    // Only touch rows that actually have a timestamp; this keeps the write
+    // small on libraries with a long tail of never-played files.
+    final played = await isar.videoModels
+        .filter()
+        .isInVaultEqualTo(false)
+        .and()
+        .lastPlayedAtIsNotNull()
+        .findAll();
+    if (played.isEmpty) return;
+    for (final m in played) {
+      m.lastPlayedAt = null;
+    }
+    await isar.writeTxn(() async {
+      await isar.videoModels.putAll(played);
+    });
   }
 }

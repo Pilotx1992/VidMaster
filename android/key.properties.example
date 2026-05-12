@@ -1,0 +1,16 @@
+# Release signing (optional for debug; required for *Release Gradle tasks).
+#
+# 1. Copy this file to key.properties in the same directory (android/key.properties).
+# 2. Point storeFile at your keystore path (relative to the android/ directory is fine).
+# 3. Fill passwords and alias. Never commit key.properties or keystores.
+#
+# Example:
+#   storeFile=../release-upload.keystore
+#   storePassword=***
+#   keyAlias=upload
+#   keyPassword=***
+
+storeFile=
+storePassword=
+keyAlias=
+keyPassword=

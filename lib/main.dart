@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
@@ -14,6 +15,7 @@ import 'core/theme/app_theme.dart';
 import 'di.dart';
 import 'features/music_player/data/audio_handler.dart';
 import 'features/settings/presentation/providers/settings_provider.dart';
+import 'features/security/presentation/providers/auth_provider.dart';
 import 'features/video_player/presentation/widgets/mini_player_layer.dart';
 import 'l10n/app_localizations.dart';
 
@@ -92,14 +94,42 @@ Future<void> main() async {
   );
 }
 
-class VidMasterApp extends ConsumerWidget {
+class VidMasterApp extends ConsumerStatefulWidget {
   const VidMasterApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VidMasterApp> createState() => _VidMasterAppState();
+}
+
+class _VidMasterAppState extends ConsumerState<VidMasterApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(ref.read(appAuthProvider.notifier).lock());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
-    final textDirection =
-        settings.locale.toLowerCase().startsWith('ar') ? TextDirection.rtl : TextDirection.ltr;
+    final textDirection = settings.locale.toLowerCase().startsWith('ar')
+        ? TextDirection.rtl
+        : TextDirection.ltr;
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,

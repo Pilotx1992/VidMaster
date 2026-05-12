@@ -22,16 +22,24 @@
 vidmaster/
 ├── android/                 # Native Android (Kotlin/Gradle)
 ├── assets/                  # Static assets (images, etc.)
-├── docs/                    # Project documentation (this file lives here)
+├── docs/                    # Project documentation (this file + all docs)
+│   ├── BLUEPRINT.md         # Architecture blueprint (canonical)
+│   ├── X.md                 # Video player technical PRD
+│   ├── VidMaster.md         # Product requirements document
+│   ├── mapper.md            # This file — AI-agent codebase map
+│   ├── ROADMAP.md           # Execution checklist
+│   ├── RELEASE_CHECKLIST.md # Pre-release validation
+│   ├── VIDEO_AGENT.md       # Redirect stub → archive
+│   ├── handout.md           # Archived (outdated versions)
+│   ├── archive/             # Archived/historical documents
+│   └── downloader/          # Downloader-specific docs
 ├── ios/ macos/ linux/ windows/ web/   # Other Flutter platforms (mostly default)
 ├── lib/                     # Dart source — the bulk of the app
 ├── test/                    # Unit + widget tests
 ├── analysis_options.yaml    # Lints
 ├── pubspec.yaml             # Dependencies (canonical)
 ├── pubspec.lock
-├── BLUEPRINT.md             # High-level architectural blueprint
-├── X.md                     # Technical PRD
-└── README.md
+└── README.md                # Project overview (status-based)
 ```
 
 ---
@@ -325,12 +333,15 @@ Path prefix: `lib/features/settings/`
 
 | File                                  | What it is |
 |---------------------------------------|------------|
-| `BLUEPRINT.md`                        | Architecture blueprint (root copy). |
-| `X.md`                                | Technical PRD. |
-| `README.md`                           | Project README. |
+| `docs/BLUEPRINT.md`                   | Architecture blueprint (canonical reference). |
+| `docs/X.md`                           | Video player technical PRD. |
+| `docs/VidMaster.md`                   | Product requirements document. |
+| `README.md`                           | Project overview (status-based, no duplication). |
 | `docs/ROADMAP.md`                     | Day-by-day execution checklist. |
-| `docs/VIDEO_AGENT.md`                 | Agent brief: video feature + player UX notes. |
 | `docs/RELEASE_CHECKLIST.md`           | Pre-release verification. |
+| `docs/VIDEO_AGENT.md`                 | **Redirect stub** — points to X.md + mapper.md (archived guide at `docs/archive/VIDEO_AGENT.md`). |
+| `docs/archive/VIDEO_AGENT.md`         | Archived: original 1886-line implementation guide (all 6 phases implemented; do NOT use for current work). |
+| `docs/handout.md`                     | Archived: outdated execution guide (incorrect package versions). |
 | `docs/downloader/BLUEPRINT.md`        | Downloader-specific blueprint. |
 | `docs/downloader/PRD.md`              | Downloader PRD. |
 | `docs/downloader/ROADMAP.md`          | Downloader roadmap. |

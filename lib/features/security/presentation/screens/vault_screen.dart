@@ -91,7 +91,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
                 ),
               ),
               const Text(
-                'Encrypted private storage',
+                'Private storage (security review pending)',
                 style: TextStyle(color: Colors.white54, fontSize: 12),
               ),
             ],

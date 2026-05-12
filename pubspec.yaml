@@ -67,6 +67,14 @@ dependencies:
 
   # 🌐 Connectivity
   connectivity_plus: ^6.1.1
+  network_info_plus: ^6.1.4
+
+  # 📡 Local HTTP server (Chromecast media foundation — Phase 6.1)
+  # `shelf` is the upstream-recommended Dart HTTP server building block;
+  # `mime` derives the Content-Type from the file extension so the Cast
+  # receiver picks the right decoder.
+  shelf: ^1.4.2
+  mime: ^2.0.0
 
   # 🔒 Screen Protection
   flutter_windowmanager: ^0.2.0
@@ -82,6 +90,7 @@ dependencies:
   photo_manager: ^3.9.0
   uuid: ^4.5.3
   cached_network_image: ^3.4.1
+  flutter_svg: ^2.3.0
   # Removed: depends on build_tool inside pub cache (breaks Android builds)
 
 dev_dependencies:
@@ -114,6 +123,8 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/music icon.svg
 
 # Regenerate launcher icons after changing image_path:
 #   dart run flutter_launcher_icons
@@ -124,3 +135,18 @@ flutter_launcher_icons:
   image_path: assets/images/logo.png
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: assets/images/logo.png
+
+flutter_native_splash:
+  color: "#111B21"
+  color_dark: "#111B21"
+  image: assets/images/logo.png
+  image_dark: assets/images/logo.png
+  android: true
+  ios: true
+  web: true
+  fullscreen: true
+  android_12:
+    color: "#111B21"
+    color_dark: "#111B21"
+    image: assets/images/logo.png
+    image_dark: assets/images/logo.png

@@ -70,23 +70,24 @@ class AppTheme {
           outline: outlineDark,
         ),
         scaffoldBackgroundColor: backgroundDark,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
+        appBarTheme: AppBarTheme(
+          backgroundColor: surfaceDark,
+          foregroundColor: onSurfaceDark,
           elevation: 0,
+          scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
           centerTitle: false,
-          iconTheme: IconThemeData(color: Colors.black),
-          actionsIconTheme: IconThemeData(color: Colors.black),
-          titleTextStyle: TextStyle(
-            color: Colors.black,
+          iconTheme: const IconThemeData(color: onSurfaceDark),
+          actionsIconTheme: const IconThemeData(color: onSurfaceDark),
+          titleTextStyle: const TextStyle(
+            color: onSurfaceDark,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
-          systemOverlayStyle: SystemUiOverlayStyle(
+          systemOverlayStyle: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-            statusBarBrightness: Brightness.light,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
           ),
         ),
         dividerTheme: const DividerThemeData(color: outlineDark, thickness: 1, space: 1),

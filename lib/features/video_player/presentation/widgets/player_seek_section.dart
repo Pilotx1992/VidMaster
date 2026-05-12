@@ -3,16 +3,24 @@ import 'package:flutter/material.dart';
 import 'player_control_helpers.dart';
 
 /// LTR seek row; previews while dragging, seeks only on [onChangeEnd].
+///
+/// [onDragStart] / [onDragEnd] let the host suspend the controls auto-hide
+/// timer for the duration of a drag, so the panel never vanishes under the
+/// user's finger. Seek is still committed only on drag end.
 class PlayerSeekSection extends StatefulWidget {
   final Duration position;
   final Duration duration;
   final ValueChanged<Duration> onSeekEnd;
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
 
   const PlayerSeekSection({
     super.key,
     required this.position,
     required this.duration,
     required this.onSeekEnd,
+    this.onDragStart,
+    this.onDragEnd,
   });
 
   @override
@@ -51,27 +59,45 @@ class _PlayerSeekSectionState extends State<PlayerSeekSection> {
               ),
             ),
             Expanded(
-              child: SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: kPlayerAccent,
-                  inactiveTrackColor: Colors.white24,
-                  thumbColor: kPlayerAccent,
-                  overlayColor: kPlayerAccent.withValues(alpha: 0.2),
+              // Shrink the slider's vertical footprint so its visible track
+              // sits closer to the Play/Pause row below. Material's default
+              // overlay (radius 24) + padded tap target reserves ~48dp of
+              // vertical space; trimming both removes the perceived gap
+              // between the seek bar and the transport row. Drag preview /
+              // onChangeEnd-only commit is unchanged.
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: Slider(
-                  value: value,
-                  max: maxMs,
-                  onChangeStart: (_) {
-                    setState(() => _dragValueMs = realValue);
-                  },
-                  onChanged: (v) {
-                    setState(() => _dragValueMs = v);
-                  },
-                  onChangeEnd: (v) {
-                    final ms = v.round().clamp(0, cap);
-                    setState(() => _dragValueMs = null);
-                    widget.onSeekEnd(Duration(milliseconds: ms));
-                  },
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: kPlayerAccent,
+                    inactiveTrackColor: Colors.white24,
+                    thumbColor: kPlayerAccent,
+                    overlayColor: kPlayerAccent.withValues(alpha: 0.2),
+                    overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 14),
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    trackHeight: 3,
+                  ),
+                  child: Slider(
+                    value: value,
+                    max: maxMs,
+                    onChangeStart: (_) {
+                      setState(() => _dragValueMs = realValue);
+                      widget.onDragStart?.call();
+                    },
+                    onChanged: (v) {
+                      setState(() => _dragValueMs = v);
+                    },
+                    onChangeEnd: (v) {
+                      final ms = v.round().clamp(0, cap);
+                      setState(() => _dragValueMs = null);
+                      widget.onDragEnd?.call();
+                      widget.onSeekEnd(Duration(milliseconds: ms));
+                    },
+                  ),
                 ),
               ),
             ),

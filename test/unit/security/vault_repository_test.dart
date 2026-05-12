@@ -105,6 +105,12 @@ void main() {
         )
       ];
       when(() => mockMetadataDS.getAllMetadata()).thenReturn(tMetadata);
+      
+      // unlock vault first
+      when(() => mockAuthDS.isLockedOut()).thenAnswer((_) async => false);
+      when(() => mockAuthDS.verifyPin('1234')).thenAnswer((_) async => true);
+      when(() => mockAuthDS.resetFailedAttempts()).thenAnswer((_) async => {});
+      await repository.authenticateUser('1234');
 
       // act
       final result = await repository.getVaultItems();

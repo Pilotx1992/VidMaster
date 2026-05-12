@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:media_kit/media_kit.dart';
@@ -17,6 +18,7 @@ class MockResumeRepository extends Mock implements ResumeRepository {}
 class MockSubtitlePreferencesRepository extends Mock implements SubtitlePreferencesRepository {}
 class MockRef extends Mock implements Ref {}
 class MockProviderSubscription extends Mock implements ProviderSubscription<domain.SubtitleSettings> {}
+class FakeProviderListenable extends Fake implements ProviderListenable<domain.SubtitleSettings> {}
 
 void main() {
   late MockVideoEngine mockEngine;
@@ -31,6 +33,7 @@ void main() {
     registerFallbackValue(SubtitleTrack.no());
     registerFallbackValue(const Duration());
     registerFallbackValue(const domain.SubtitleSettings());
+    registerFallbackValue(FakeProviderListenable());
   });
 
   setUp(() {
@@ -54,6 +57,11 @@ void main() {
     
     // Mock ref.listen to avoid errors
     when(() => mockRef.listen<domain.SubtitleSettings>(any(), any())).thenReturn(MockProviderSubscription());
+
+    // Setup missing mock methods to prevent unhandled mocktail errors
+    when(() => mockEngine.setPlaybackSpeed(any())).thenAnswer((_) async {});
+    when(() => mockEngine.setSubtitleTrack(any())).thenAnswer((_) async {});
+    when(() => mockEngine.pause()).thenAnswer((_) async {});
   });
 
   group('VideoPlayerNotifier', () {
@@ -71,12 +79,12 @@ void main() {
     });
 
     test('openVideo restores persisted external subtitle track before playback', () async {
-      const video = VideoFile(path: '/tmp/video.mp4', name: 'video', duration: Duration.zero);
+      final tempFile = File('test_video.mp4');
+      if (!await tempFile.exists()) await tempFile.writeAsString('dummy');
+      final video = VideoFile(path: tempFile.path, name: 'video', duration: Duration.zero);
       when(() => mockEngine.open(any())).thenAnswer((_) async {});
       when(() => mockResumeRepo.loadPosition(video.path)).thenAnswer((_) async => Duration.zero);
-      when(() => mockEngine.setSubtitleTrack(any())).thenAnswer((_) async {});
       when(() => mockEngine.play()).thenAnswer((_) async {});
-      when(() => mockEngine.pause()).thenAnswer((_) async {});
 
       final notifier = VideoPlayerNotifier(
         engine: mockEngine,
@@ -88,6 +96,8 @@ void main() {
       await notifier.openVideo(video);
 
       verify(() => mockEngine.play()).called(1);
+      
+      if (await tempFile.exists()) await tempFile.delete();
     });
 
     test('setSubtitleTrack persists URI-based external track path for current video', () async {

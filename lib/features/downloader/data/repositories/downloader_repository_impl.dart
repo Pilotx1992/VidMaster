@@ -61,15 +61,15 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
       final activeEngine = engine ?? urlInfo.engine;
 
       final task = DownloadTaskEntity(
-        taskId:        logicalId,
-        url:           url,
-        fileName:      fileName,
+        taskId: logicalId,
+        url: url,
+        fileName: fileName,
         saveDirectory: saveDirectory,
-        status:        DownloadStatus.running,
-        createdAt:     DateTime.now(),
-        engine:        activeEngine,
-        totalBytes:    urlInfo.fileSizeBytes,
-        wifiOnly:      wifiOnly,
+        status: DownloadStatus.running,
+        createdAt: DateTime.now(),
+        engine: activeEngine,
+        totalBytes: urlInfo.fileSizeBytes,
+        wifiOnly: wifiOnly,
       );
 
       // 3. Persist initial record
@@ -79,10 +79,11 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
 
       if (activeEngine == DownloadEngineType.ffmpeg) {
         // DASH Extraction Logic (Usually comes from social downloader, but if triggered here...)
-        // This repo implementation is mainly for direct links. 
+        // This repo implementation is mainly for direct links.
         // For DASH, we usually expect videoUrl and audioUrl to be set.
         // If they aren't, this falls back to native or fails.
-        return const Left(NetworkFailure('Direct DASH download without metadata is not supported.'));
+        return const Left(NetworkFailure(
+            'Direct DASH download without metadata is not supported.'));
       } else {
         videoNativeId = await FlutterDownloader.enqueue(
           url: url,
@@ -105,7 +106,8 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
 
       return Right(finalTask);
     } catch (e, st) {
-      return Left(NetworkFailure('Failed to start download: $e', stackTrace: st));
+      return Left(
+          NetworkFailure('Failed to start download: $e', stackTrace: st));
     }
   }
 
@@ -161,11 +163,17 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
     }
   }
 
-  Future<void> _handleTaskIdChange({required String oldId, required String newId}) async {
-    final model = await _localDataSource.getTaskByTaskId(oldId);
+  Future<void> _handleTaskIdChange(
+      {required String oldId, required String newId}) async {
+    final model = await _localDataSource.getTaskByAnyTaskId(oldId);
     if (model != null) {
-      await _localDataSource.deleteByTaskId(oldId);
-      model.taskId = newId;
+      if (model.taskId == oldId) {
+        model.taskId = newId;
+      } else if (model.videoTaskId == oldId) {
+        model.videoTaskId = newId;
+      } else if (model.audioTaskId == oldId) {
+        model.audioTaskId = newId;
+      }
       await _localDataSource.putTask(model);
     }
   }
@@ -176,7 +184,7 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
     DownloadStatus status,
   ) async {
     try {
-      final model = await _localDataSource.getTaskByTaskId(taskId);
+      final model = await _localDataSource.getTaskByAnyTaskId(taskId);
       if (model == null) {
         return Left(CacheFailure('Download task not found: $taskId'));
       }
@@ -191,9 +199,8 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
       await _localDataSource.putTask(model);
       return const Right(null);
     } on CacheException catch (e, st) {
-      return Left(
-          CacheFailure('Failed to update task status: ${e.message}',
-              stackTrace: st));
+      return Left(CacheFailure('Failed to update task status: ${e.message}',
+          stackTrace: st));
     } catch (e, st) {
       return Left(CacheFailure('Unexpected error: $e', stackTrace: st));
     }
@@ -215,8 +222,7 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
   }
 
   @override
-  Future<Either<Failure, List<DownloadTaskEntity>>>
-      getActiveDownloads() async {
+  Future<Either<Failure, List<DownloadTaskEntity>>> getActiveDownloads() async {
     try {
       final models = await _localDataSource.getTasksByStatuses([
         DownloadStatus.queued,
@@ -240,9 +246,9 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
       ]);
       return Right(models.map((m) => m.toDomain()).toList());
     } on CacheException catch (e, st) {
-      return Left(
-          CacheFailure('Failed to fetch completed downloads: ${e.message}',
-              stackTrace: st));
+      return Left(CacheFailure(
+          'Failed to fetch completed downloads: ${e.message}',
+          stackTrace: st));
     } catch (e, st) {
       return Left(CacheFailure('Unexpected error: $e', stackTrace: st));
     }
@@ -254,15 +260,32 @@ class DownloaderRepositoryImpl implements DownloaderRepository {
     bool deleteFile = false,
   }) async {
     try {
+      final model = await _localDataSource.getTaskByAnyTaskId(taskId);
+      if (model == null) {
+        return Left(CacheFailure('Download task not found: $taskId'));
+      }
+
+      final nativeIds = <String>{
+        if (model.videoTaskId != null) model.videoTaskId!,
+        if (model.audioTaskId != null) model.audioTaskId!,
+        if (model.videoTaskId == null && model.audioTaskId == null)
+          model.taskId,
+      };
+
       // Remove from flutter_downloader.
       try {
-        await FlutterDownloader.remove(taskId: taskId, shouldDeleteContent: deleteFile);
-      } catch (e) {
-        // Ignore native error, ensure Isar is cleaned up
+        for (final nativeId in nativeIds) {
+          await FlutterDownloader.remove(
+            taskId: nativeId,
+            shouldDeleteContent: deleteFile,
+          );
+        }
+      } catch (_) {
+        // Ignore native error, ensure Isar is cleaned up.
       }
 
       // Also clean up local DB.
-      await _localDataSource.deleteByTaskId(taskId);
+      await _localDataSource.deleteByTaskId(model.taskId);
       return const Right(null);
     } on CacheException catch (e, st) {
       return Left(CacheFailure('Failed to delete download: ${e.message}',

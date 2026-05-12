@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:vidmaster/core/theme/app_theme.dart';
 
 class PlayerLoadingOverlay extends StatelessWidget {
   const PlayerLoadingOverlay({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
+    return IgnorePointer(
       child: ColoredBox(
-        color: Color(0x33000000),
+        color: Colors.black.withValues(alpha: 0.45),
         child: Center(
-          child: CircularProgressIndicator(color: Color(0xFFF9A825)),
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: AppTheme.secondaryColor,
+            ),
+          ),
         ),
       ),
     );

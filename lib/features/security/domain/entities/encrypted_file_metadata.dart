@@ -5,11 +5,14 @@
 /// on disk. This is by design: storing video bytes in Hive would cause
 /// OOM crashes for files larger than ~100 MB.
 ///
-/// Encryption scheme:
-///   - Algorithm  : AES-256-GCM (authenticated encryption)
+/// Current vault file scheme:
+///   - File data  : legacy HMAC-SHA256 keystream transform + per-chunk HMAC
 ///   - Key wrap   : PBKDF2-HMAC-SHA256 (200,000 iterations)
-///   - IV / nonce : 96-bit random, unique per file
-///   - Chunk size : 4 MB (streaming cipher — constant RAM usage)
+///   - Nonce      : 96-bit random, unique per file
+///   - Chunk size : 4 MB (constant RAM usage)
+///
+/// This is not AES-GCM/AES-CTR and must not be marketed as release-grade vault
+/// encryption until replaced with an audited AEAD implementation.
 final class EncryptedFileMetadata {
   /// Unique identifier for this vault entry (UUID v4).
   final String id;
@@ -22,21 +25,21 @@ final class EncryptedFileMetadata {
   final String mimeType;
 
   /// Original file size in bytes (before encryption).
-  /// Encryption adds minimal overhead (~16 bytes GCM tag per chunk).
+  /// Encryption adds per-chunk HMAC/tag overhead.
   final int originalFileSizeBytes;
 
   /// Name of the encrypted file on disk. Example: `a3f9c2b1.enc`
   /// The actual file lives at: `<app_private_dir>/vault/<encFileName>`
   final String encFileName;
 
-  /// The AES-256 file encryption key, wrapped (encrypted) with the
-  /// user's PIN-derived key (PBKDF2).
+  /// The per-file transform key, wrapped with the user's PIN-derived key
+  /// (PBKDF2).
   ///
   /// To decrypt: derive key from PIN + [pbkdf2Salt], then unwrap this.
   /// Never store the unwrapped key on disk or in memory longer than needed.
   final List<int> wrappedKey;
 
-  /// 96-bit (12-byte) GCM nonce / IV used for AES-GCM encryption.
+  /// 96-bit (12-byte) file-level nonce / IV used by the legacy transform.
   /// Unique per file. Never reuse.
   final List<int> iv;
 

@@ -295,6 +295,10 @@ final generateThumbnailProvider =
     Provider((ref) => GenerateThumbnail(ref.watch(videoRepositoryProvider)));
 final getRecentlyPlayedVideosProvider =
     Provider((ref) => GetRecentlyPlayed(ref.watch(videoRepositoryProvider)));
+final clearRecentlyPlayedVideosProvider =
+    Provider((ref) => ClearRecentlyPlayed(ref.watch(videoRepositoryProvider)));
+final deleteVideoUseCaseProvider =
+    Provider((ref) => DeleteVideo(ref.watch(videoRepositoryProvider)));
 
 // ── Music Use Cases ────────────────────────────────────────────────────────
 
@@ -362,6 +366,8 @@ final authenticateWithBiometricProvider = Provider(
     (ref) => AuthenticateWithBiometric(ref.watch(vaultRepositoryProvider)));
 final getAuthStateProvider =
     Provider((ref) => GetAuthState(ref.watch(authRepositoryProvider)));
+final lockVaultProvider =
+    Provider((ref) => LockVault(ref.watch(vaultRepositoryProvider)));
 
 // Vault
 final getVaultItemsProvider =

@@ -287,10 +287,48 @@ class VideoRepositoryImpl implements VideoRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> deleteVideo(String filePath) async {
+    try {
+      // 1. File first. If this throws (permission, missing file, scoped-
+      //    storage rejection on Android 11+), we abort and keep the DB row
+      //    so the library still reflects what's actually on disk.
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+      // 2. DB row. Best-effort; if Isar fails here the file is already gone
+      //    so the next syncLibrary() will eventually clean it up.
+      await localDataSource.deleteVideoByPath(filePath);
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure('Failed to delete video: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> clearRecentlyPlayed() async {
+    try {
+      await localDataSource.clearRecentlyPlayed();
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure('Failed to clear recent: ${e.toString()}'));
+    }
+  }
+
   VideoEntity _withDeviceDateFallback(VideoEntity e) {
-    // The UI "Date" sort should behave like "date added/modified on device"
-    // for items that were never played (lastPlayedAt == null).
-    if (e.lastPlayedAt != null || e.fileModifiedAt != null) return e;
+    // ALWAYS populate `fileModifiedAt` from disk when it's missing — this is
+    // the canonical "date added/modified on device" key the UI Date sort uses.
+    //
+    // Critical: the previous version short-circuited on `lastPlayedAt != null`.
+    // Because `VideoModel` (Isar) does NOT persist `fileModifiedAt`, ANY video
+    // that had ever been played came back from the DB with
+    // `fileModifiedAt = null` AND `lastPlayedAt != null`. That made the old
+    // guard skip the disk-stat fallback, leaving `fileModifiedAt = null`, which
+    // collapsed to `DateTime(0)` (epoch) in the Date comparator — so every
+    // played video sank to the bottom of the list the instant it was opened.
+    // That's the "order changes based on playback" bug the user reported.
+    if (e.fileModifiedAt != null) return e;
     try {
       final dt = File(e.filePath).lastModifiedSync();
       return e.copyWith(fileModifiedAt: dt);

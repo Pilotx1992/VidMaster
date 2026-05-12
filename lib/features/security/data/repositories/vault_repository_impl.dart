@@ -13,10 +13,10 @@ import '../datasources/auth_local_data_source.dart';
 import '../datasources/file_encryption_data_source.dart';
 import '../datasources/vault_metadata_data_source.dart';
 
-/// Production implementation of [VaultRepository].
+/// Current implementation of [VaultRepository].
 ///
 /// Orchestrates three data sources:
-///   - [FileEncryptionDataSource] — streaming AES encryption/decryption
+///   - [FileEncryptionDataSource] — legacy authenticated file transform
 ///   - [VaultMetadataDataSource] — Hive persistence for metadata
 ///   - [AuthLocalDataSource] — PIN verification and auth state
 ///

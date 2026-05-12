@@ -48,10 +48,29 @@ class _ProGestureLayerState extends State<ProGestureLayer> {
   double _levelValue = 0;
   Timer? _levelTimer;
 
+  // Brief visual confirmation for a double-tap seek (±10s ripple).
+  // Hidden by default; appears for ~450ms after the gesture is recognised.
+  bool _doubleTapHintForward = true;
+  bool _doubleTapHintVisible = false;
+  Timer? _doubleTapTimer;
+
   @override
   void dispose() {
     _levelTimer?.cancel();
+    _doubleTapTimer?.cancel();
     super.dispose();
+  }
+
+  void _showDoubleTapHint(bool forward) {
+    _doubleTapTimer?.cancel();
+    setState(() {
+      _doubleTapHintForward = forward;
+      _doubleTapHintVisible = true;
+    });
+    _doubleTapTimer = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted) return;
+      setState(() => _doubleTapHintVisible = false);
+    });
   }
 
   @override
@@ -73,6 +92,7 @@ class _ProGestureLayerState extends State<ProGestureLayer> {
             }
 
             HapticFeedback.mediumImpact();
+            _showDoubleTapHint(!isLeft);
           },
           onPanStart: (d) {
             _startPosition = widget.position;
@@ -196,6 +216,55 @@ class _ProGestureLayerState extends State<ProGestureLayer> {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+
+        // Double-tap ±10s visual hint. Lightweight, ignores pointers, sits on
+        // the half of the screen the user actually tapped.
+        if (_doubleTapHintVisible)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Align(
+                alignment: _doubleTapHintForward
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  child: AnimatedOpacity(
+                    opacity: _doubleTapHintVisible ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 120),
+                    child: Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _doubleTapHintForward
+                                ? Icons.forward_10_rounded
+                                : Icons.replay_10_rounded,
+                            color: Colors.white,
+                            size: 36,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _doubleTapHintForward ? '+10s' : '-10s',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

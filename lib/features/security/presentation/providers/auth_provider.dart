@@ -53,6 +53,7 @@ class AppAuthNotifier extends StateNotifier<AppAuthState> {
   final AuthenticateVaultUser _authenticateVaultUser;
   final AuthenticateWithBiometric _biometric;
   final GetAuthState _getAuthState;
+  final LockVault _lockVault;
 
   AppAuthNotifier({
     required IsPinSet isPinSet,
@@ -60,11 +61,13 @@ class AppAuthNotifier extends StateNotifier<AppAuthState> {
     required AuthenticateVaultUser authenticateVaultUser,
     required AuthenticateWithBiometric biometric,
     required GetAuthState getAuthState,
+    required LockVault lockVault,
   })  : _isPinSet = isPinSet,
         _setupPin = setupPin,
         _authenticateVaultUser = authenticateVaultUser,
         _biometric = biometric,
         _getAuthState = getAuthState,
+        _lockVault = lockVault,
         super(const AppAuthState()) {
     _initialize();
   }
@@ -147,9 +150,10 @@ class AppAuthNotifier extends StateNotifier<AppAuthState> {
     );
   }
 
-  void lock() => state = state.copyWith(
-        screenStatus: AuthScreenStatus.locked,
-      );
+  Future<void> lock() async {
+    await _lockVault(const NoParams());
+    state = state.copyWith(screenStatus: AuthScreenStatus.locked);
+  }
 
   void clearError() => state = state.copyWith(clearError: true);
 }
@@ -162,5 +166,6 @@ final appAuthProvider =
     authenticateVaultUser: ref.watch(authenticateVaultUserProvider),
     biometric: ref.watch(authenticateWithBiometricProvider),
     getAuthState: ref.watch(getAuthStateProvider),
+    lockVault: ref.watch(lockVaultProvider),
   );
 });

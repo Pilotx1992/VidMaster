@@ -4,13 +4,24 @@ import '../../domain/entities/video_playback_state.dart';
 import '../providers/video_player_notifier.dart';
 import 'player_control_helpers.dart';
 import 'player_speed_menu_button.dart';
+import 'player_subtitle_track_menu.dart';
 
-/// Lock, Mute, Aspect, Speed only — no subtitle / more (those live in [PlayerTopBar]).
+/// Mute · (Lock) · (Subtitle) · (Aspect) · Speed. Lock / Subtitle / Aspect are
+/// opt-in via [showLock] / [showSubtitle] / [showAspect] — once Lock and
+/// Aspect were promoted to the transport row's edge anchors, this row hides
+/// them by default so the surface stays uncrowded.
 class PlayerQuickActionsRow extends StatelessWidget {
   final VideoPlayerState state;
   final VideoPlayerNotifier notifier;
   final bool compact;
   final bool showLabels;
+  final bool showLock;
+  final bool showSubtitle;
+
+  /// Render the Aspect-ratio chip inside this row. Defaults to `false` because
+  /// the transport-row right anchor now owns that affordance; pass `true` if a
+  /// future surface wants the in-row chip back.
+  final bool showAspect;
 
   const PlayerQuickActionsRow({
     super.key,
@@ -18,6 +29,9 @@ class PlayerQuickActionsRow extends StatelessWidget {
     required this.notifier,
     this.compact = false,
     this.showLabels = false,
+    this.showLock = false,
+    this.showSubtitle = false,
+    this.showAspect = false,
   });
 
   @override
@@ -69,7 +83,10 @@ class PlayerQuickActionsRow extends StatelessWidget {
 
     final speedChip = PlayerSpeedMenuButton(
       speed: state.playbackSpeed,
-      onSelected: (v) => notifier.setPlaybackSpeed(v),
+      onSelected: (v) {
+        notifier.setPlaybackSpeed(v);
+        notifier.bumpControlsAutoHide();
+      },
       menuChild: Material(
         color: Colors.white.withValues(alpha: 0.14),
         shape: const CircleBorder(),
@@ -79,13 +96,38 @@ class PlayerQuickActionsRow extends StatelessWidget {
           height: size,
           child: Center(
             child: Text(
-              _speedShort(state.playbackSpeed),
+              // Lowercase "x" suffix (e.g. "1x", "1.5x", "2x") matches the
+              // dropdown menu items and reads as "speed" at a glance —
+              // previously this showed just the number ("1", "1.5") which
+              // was ambiguous next to the other chip icons.
+              formatSpeedLabel(state.playbackSpeed).toLowerCase(),
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
                 fontSize: compact ? 12 : 13,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+
+    final gap = SizedBox(width: compact ? 12 : 18);
+
+    final subtitleChip = PlayerSubtitleTrackMenu(
+      state: state,
+      notifier: notifier,
+      menuChild: Material(
+        color: Colors.white.withValues(alpha: 0.14),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Icon(
+            Icons.closed_caption,
+            color: Colors.white,
+            size: iconSz,
           ),
         ),
       ),
@@ -99,15 +141,6 @@ class PlayerQuickActionsRow extends StatelessWidget {
         children: [
           wrapLabel(
             circleTap(
-              icon: Icons.lock_outline_rounded,
-              tooltip: 'Lock screen',
-              onTap: notifier.toggleLockMode,
-            ),
-            'Lock',
-          ),
-          SizedBox(width: compact ? 12 : 18),
-          wrapLabel(
-            circleTap(
               icon: muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
               tooltip: muted ? 'Unmute' : 'Mute',
               onTap: () {
@@ -116,21 +149,48 @@ class PlayerQuickActionsRow extends StatelessWidget {
                 } else {
                   notifier.setVolume(0.0);
                 }
+                notifier.bumpControlsAutoHide();
               },
             ),
             'Mute',
           ),
-          SizedBox(width: compact ? 12 : 18),
-          wrapLabel(
-            circleTap(
-              icon: Icons.fit_screen_rounded,
-              tooltip:
-                  '${aspectRatioModeLabel(state.aspectRatioMode)} — tap to change',
-              onTap: notifier.cycleAspectRatio,
+          if (showLock) ...[
+            gap,
+            wrapLabel(
+              circleTap(
+                icon: Icons.lock_outline_rounded,
+                tooltip: 'Lock screen',
+                onTap: () {
+                  notifier.bumpControlsAutoHide();
+                  notifier.toggleLockMode();
+                },
+              ),
+              'Lock',
             ),
-            'Aspect',
-          ),
-          SizedBox(width: compact ? 12 : 18),
+          ],
+          if (showSubtitle) ...[
+            gap,
+            wrapLabel(
+              Tooltip(message: 'Subtitles', child: subtitleChip),
+              'CC',
+            ),
+          ],
+          if (showAspect) ...[
+            gap,
+            wrapLabel(
+              circleTap(
+                icon: Icons.fit_screen_rounded,
+                tooltip:
+                    '${aspectRatioModeLabel(state.aspectRatioMode)} — tap to change',
+                onTap: () {
+                  notifier.cycleAspectRatio();
+                  notifier.bumpControlsAutoHide();
+                },
+              ),
+              'Aspect',
+            ),
+          ],
+          gap,
           wrapLabel(
             Tooltip(
               message: 'Speed',
@@ -144,9 +204,3 @@ class PlayerQuickActionsRow extends StatelessWidget {
   }
 }
 
-String _speedShort(double speed) {
-  if (speed <= 0) return '1';
-  final r = (speed * 100).round() / 100;
-  if ((r * 100) % 100 == 0) return r.toStringAsFixed(0);
-  return r.toString();
-}

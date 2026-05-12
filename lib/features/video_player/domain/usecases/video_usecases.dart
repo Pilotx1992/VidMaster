@@ -278,3 +278,32 @@ final class GetRecentlyPlayedParams {
   final int limit;
   const GetRecentlyPlayedParams({this.limit = 20});
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Clears the Recent history (wipes `lastPlayedAt` on every non-vault video).
+final class ClearRecentlyPlayed implements UseCase<void, NoParams> {
+  final VideoRepository _repository;
+  const ClearRecentlyPlayed(this._repository);
+
+  @override
+  Future<Either<Failure, void>> call(NoParams params) =>
+      _repository.clearRecentlyPlayed();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Removes a video from device storage and the local DB.
+final class DeleteVideo implements UseCase<void, DeleteVideoParams> {
+  final VideoRepository _repository;
+  const DeleteVideo(this._repository);
+
+  @override
+  Future<Either<Failure, void>> call(DeleteVideoParams params) =>
+      _repository.deleteVideo(params.filePath);
+}
+
+final class DeleteVideoParams {
+  final String filePath;
+  const DeleteVideoParams({required this.filePath});
+}

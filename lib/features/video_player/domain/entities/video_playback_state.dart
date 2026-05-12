@@ -4,6 +4,10 @@ import 'package:media_kit/media_kit.dart';
 import 'subtitle_settings.dart';
 import 'video_file.dart';
 
+// Empty queue sentinel keeps the default const-able and lets us
+// distinguish "no queue plumbed" from "queue length 0 (impossible)".
+const List<VideoFile> _emptyQueue = <VideoFile>[];
+
 enum PlayerStatus {
   idle,
   loading,
@@ -42,6 +46,16 @@ class VideoPlayerState {
   final VideoFile? currentVideo;
   final PlayerError? error;
 
+  /// Ordered list the player was opened with (post-filter/sort, as the user
+  /// sees it in the library). Empty when no queue was plumbed (e.g. reopening
+  /// from the mini-player without a queue).
+  final List<VideoFile> queue;
+
+  /// Index of [currentVideo] within [queue]. `-1` when no queue is active
+  /// or when the current video can't be located in the queue (e.g. it was
+  /// removed from the library after opening).
+  final int queueIndex;
+
   const VideoPlayerState({
     this.status = PlayerStatus.idle,
     this.position = Duration.zero,
@@ -58,6 +72,8 @@ class VideoPlayerState {
     this.isSubtitleSheetLoading = false,
     this.currentVideo,
     this.error,
+    this.queue = _emptyQueue,
+    this.queueIndex = -1,
   });
 
   // ── Computed ───────────────────────────────────────────────
@@ -66,6 +82,13 @@ class VideoPlayerState {
   bool get hasError => error != null;
   bool get isLiveStream => duration == Duration.zero;
   bool get canSeek => !isLiveStream && duration > Duration.zero;
+
+  /// True when the queue has at least one entry after [queueIndex].
+  bool get hasNext =>
+      queueIndex >= 0 && queue.isNotEmpty && queueIndex < queue.length - 1;
+
+  /// True when the queue has at least one entry before [queueIndex].
+  bool get hasPrevious => queueIndex > 0 && queue.isNotEmpty;
 
   // ── copyWith ───────────────────────────────────────────────
   VideoPlayerState copyWith({
@@ -84,6 +107,8 @@ class VideoPlayerState {
     bool? isSubtitleSheetLoading,
     VideoFile? currentVideo,
     PlayerError? error,
+    List<VideoFile>? queue,
+    int? queueIndex,
     bool clearCurrentVideo = false,
     bool clearError = false,
   }) =>
@@ -106,5 +131,7 @@ class VideoPlayerState {
         currentVideo:
             clearCurrentVideo ? null : currentVideo ?? this.currentVideo,
         error: clearError ? null : error ?? this.error,
+        queue: queue ?? this.queue,
+        queueIndex: queueIndex ?? this.queueIndex,
       );
 }

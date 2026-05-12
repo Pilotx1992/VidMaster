@@ -103,4 +103,13 @@ abstract interface class VideoRepository {
   /// Returns the last [limit] played videos, ordered by [lastPlayedAt] desc.
   Future<Either<Failure, List<VideoEntity>>> getRecentlyPlayed(
       {int limit = 20});
+
+  /// Clears the "Recent" history: wipes `lastPlayedAt` on every non-vault
+  /// video. Favourite status and play counts are preserved.
+  Future<Either<Failure, void>> clearRecentlyPlayed();
+
+  /// Deletes the underlying file from device storage AND removes its row
+  /// from the local cache. If the file write fails (permission etc.) the DB
+  /// row is left untouched so the library stays consistent with disk.
+  Future<Either<Failure, void>> deleteVideo(String filePath);
 }

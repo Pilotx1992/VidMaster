@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:vidmaster/core/theme/app_theme.dart';
 
 import '../../domain/entities/video_playback_state.dart';
 
-/// Premium player accent (XPlayer-like green).
-const Color kPlayerAccent = Color(0xFF10B919);
+/// Transport / seek accent — matches [AppTheme.secondaryColor] (amber gold, media-focused).
+Color get kPlayerAccent => AppTheme.secondaryColor;
 
 String formatPlayerDuration(Duration d) {
   final h = d.inHours;

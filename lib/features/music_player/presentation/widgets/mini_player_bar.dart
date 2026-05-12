@@ -22,10 +22,14 @@ class MiniPlayerBar extends ConsumerWidget {
       musicPlayerProvider.select((s) => s.queue),
     );
 
-    final isNowPlayingRoute = _isNowPlayingRoute(context);
-    final shouldShow = currentTrack != null && !isNowPlayingRoute;
+    return ListenableBuilder(
+      listenable: AppRouter.router.routerDelegate,
+      builder: (context, _) {
+        final isNowPlayingRoute =
+            AppRouter.router.state.uri.path == AppRoutes.nowPlaying;
+        final shouldShow = currentTrack != null && !isNowPlayingRoute;
 
-    return AnimatedSwitcher(
+        return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
@@ -58,22 +62,9 @@ class MiniPlayerBar extends ConsumerWidget {
               currentIndex: currentIndex,
               queue: queue,
             ),
+        );
+      },
     );
-  }
-
-  bool _isNowPlayingRoute(BuildContext context) {
-    // go_router API varies a bit by version; keep this resilient.
-    try {
-      return GoRouterState.of(context).uri.path == AppRoutes.nowPlaying;
-    } catch (_) {
-      try {
-        final uri =
-            GoRouter.of(context).routerDelegate.currentConfiguration.uri;
-        return uri.path == AppRoutes.nowPlaying;
-      } catch (_) {
-        return false;
-      }
-    }
   }
 }
 

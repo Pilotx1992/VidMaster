@@ -40,6 +40,22 @@ class DownloaderLocalDataSource {
     }
   }
 
+  /// Returns the task matching a logical parent ID or a native DASH child ID.
+  Future<DownloadTaskModel?> getTaskByAnyTaskId(String taskId) async {
+    try {
+      return await _box
+          .filter()
+          .taskIdEqualTo(taskId)
+          .or()
+          .videoTaskIdEqualTo(taskId)
+          .or()
+          .audioTaskIdEqualTo(taskId)
+          .findFirst();
+    } catch (e) {
+      throw CacheException(message: 'Failed to query task by any taskId: $e');
+    }
+  }
+
   /// Returns all persisted download tasks, ordered by [createdAt] descending.
   Future<List<DownloadTaskModel>> getAllTasks() async {
     try {
@@ -50,7 +66,8 @@ class DownloaderLocalDataSource {
   }
 
   /// Returns tasks whose [statusIndex] matches any of [statuses].
-  Future<List<DownloadTaskModel>> getTasksByStatuses(List<DownloadStatus> statuses) async {
+  Future<List<DownloadTaskModel>> getTasksByStatuses(
+      List<DownloadStatus> statuses) async {
     try {
       final indices = statuses.map((s) => s.index).toList();
       return await _box
@@ -65,12 +82,19 @@ class DownloaderLocalDataSource {
 
   // ─── DELETE ───────────────────────────────────────────────────────────
 
-  /// Removes the task with the given engine [taskId].
+  /// Removes the task with the given logical or native child [taskId].
   /// Returns `true` if a record was actually deleted.
   Future<bool> deleteByTaskId(String taskId) async {
     try {
       return await _isar.writeTxn(() async {
-        final count = await _box.filter().taskIdEqualTo(taskId).deleteAll();
+        final count = await _box
+            .filter()
+            .taskIdEqualTo(taskId)
+            .or()
+            .videoTaskIdEqualTo(taskId)
+            .or()
+            .audioTaskIdEqualTo(taskId)
+            .deleteAll();
         return count > 0;
       });
     } catch (e) {
@@ -95,4 +119,3 @@ class DownloaderLocalDataSource {
     }
   }
 }
-

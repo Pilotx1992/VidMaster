@@ -2,17 +2,20 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
 import '../entities/encrypted_file_metadata.dart';
 
-/// Contract for all vault (encrypted secure storage) operations.
+/// Contract for current vault storage operations.
 ///
-/// Implementation responsibilities:
-///   - AES-256-GCM streaming encryption/decryption of files on disk
-///   - PBKDF2 key derivation from user PIN (200,000 iterations, SHA-256)
-///   - Storing/retrieving [EncryptedFileMetadata] in a Hive encrypted box
+/// Current implementation responsibilities:
+///   - Streaming file transform with per-chunk HMAC verification.
+///   - PBKDF2 key derivation from user PIN (200,000 iterations, SHA-256).
+///   - Storing/retrieving [EncryptedFileMetadata] in the Hive vault box.
 ///   - Biometric + PIN authentication via `local_auth`
 ///
 /// Vault directory: `<app private storage>/vault/` — inaccessible without root.
-/// Hive box: `vault_metadata` — itself AES-256 encrypted with a master key
-/// stored in Android Keystore via `flutter_secure_storage`.
+/// Hive box: `vault_metadata` currently stores metadata through the app's Hive
+/// box setup and is not documented here as AES-encrypted.
+///
+/// Do not market the vault as AES-GCM/AES-CTR until the data source is replaced
+/// with an audited AEAD implementation and the Hive box encryption is verified.
 abstract interface class VaultRepository {
   // ─── Authentication ───────────────────────────────────────────────────
 
@@ -48,8 +51,8 @@ abstract interface class VaultRepository {
   /// Process:
   ///   1. Validate [sourceFilePath] exists and is not already in vault.
   ///   2. Check available storage (encrypted file ≈ same size as original).
-  ///   3. Derive a unique AES-256 key from [userPin] + random PBKDF2 salt.
-  ///   4. Encrypt the file with AES-256-GCM in 4 MB streaming chunks.
+  ///   3. Derive a wrapping key from [userPin] + random PBKDF2 salt.
+  ///   4. Transform the file with the current streaming vault data source.
   ///   5. Write the `.enc` file to `<vault_dir>/<uuid>.enc`.
   ///   6. Store [EncryptedFileMetadata] in Hive.
   ///   7. Securely delete the original file (overwrite then delete).

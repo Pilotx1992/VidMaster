@@ -8,12 +8,12 @@ import '../providers/video_library_provider.dart';
 class VideoThumbnailCard extends ConsumerWidget {
   final VideoEntity video;
   final VoidCallback onTap;
-  final VoidCallback onFavorite;
+  final VoidCallback onMore;
 
   const VideoThumbnailCard({
     required this.video,
     required this.onTap,
-    required this.onFavorite,
+    required this.onMore,
     super.key,
   });
 
@@ -101,23 +101,23 @@ class VideoThumbnailCard extends ConsumerWidget {
               ),
             ),
 
-            // Favorite button (top-right)
+            // 3-dot "more" button (top-right) — opens the action sheet.
+            // Replaces the previous favorite shortcut; favorite remains a
+            // first-class action via the sheet when we wire it back in.
             Positioned(
               top: 4,
               right: 4,
               child: GestureDetector(
-                onTap: onFavorite,
+                onTap: onMore,
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: Colors.black45,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
-                    video.isFavourite ? Icons.favorite : Icons.favorite_border,
-                    color: video.isFavourite
-                        ? const Color(0xFFF9A825)
-                        : Colors.white70,
+                  child: const Icon(
+                    Icons.more_vert,
+                    color: Colors.white,
                     size: 16,
                   ),
                 ),

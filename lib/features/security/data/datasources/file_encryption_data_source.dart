@@ -6,23 +6,24 @@ import 'package:crypto/crypto.dart';
 
 import '../../../../core/error/exceptions.dart';
 
-/// Streaming AES-256-GCM file encryption/decryption data source.
+/// Streaming vault file transform data source.
 ///
-/// **Design principles:**
-///   - **Constant RAM usage**: reads and writes in [chunkSize] blocks
+/// This legacy implementation is authenticated, but it is not AES-GCM, not
+/// AES-CTR, and must not be marketed as complete vault encryption before it is
+/// replaced with an audited AEAD implementation.
+///
+/// Current properties:
+///   - Constant RAM usage: reads and writes in [chunkSize] blocks
 ///     (default 4 MB) so that 1 GB+ files never cause OOM.
-///   - **Authenticated encryption**: each chunk is individually
-///     AES-256-GCM encrypted with a unique nonce derived from the
-///     file-level IV + chunk index.
-///   - **Key derivation**: PBKDF2-HMAC-SHA256 with 200,000 iterations.
+///   - Per-chunk HMAC-SHA256 tags are verified before decrypting.
+///   - PBKDF2-HMAC-SHA256 with 200,000 iterations derives wrapping keys.
 ///
 /// File format (per chunk):
-///   `[4-byte chunk length][encrypted chunk data][16-byte GCM auth tag]`
+///   `[4-byte chunk length][transformed chunk data][32-byte HMAC tag]`
 ///
-/// Since the `crypto` package provides HMAC but not AES-GCM directly,
-/// this implementation uses AES-CTR for encryption with a separate
-/// HMAC-SHA256 authentication tag per chunk (Encrypt-then-MAC), which
-/// provides equivalent security guarantees to GCM.
+/// The transform generates an HMAC-SHA256 keystream and XORs it with the
+/// plaintext. This is custom cryptography and is intentionally documented as
+/// non-release-grade security.
 ///
 /// Throws [EncryptionException] on any failure.
 class FileEncryptionDataSource {
@@ -32,10 +33,10 @@ class FileEncryptionDataSource {
   /// PBKDF2 iteration count — balances security and mobile performance.
   static const int pbkdf2Iterations = 200000;
 
-  /// AES key length in bytes (256-bit).
+  /// Per-file key length in bytes.
   static const int keyLength = 32;
 
-  /// IV / nonce length in bytes (96-bit for GCM-compatible).
+  /// File-level nonce length in bytes.
   static const int ivLength = 12;
 
   /// PBKDF2 salt length in bytes.
@@ -68,13 +69,13 @@ class FileEncryptionDataSource {
 
   // ─── Key Wrapping ────────────────────────────────────────────────────
 
-  /// Wraps (encrypts) [fileKey] with [wrappingKey] using AES-CTR + HMAC.
+  /// Wraps [fileKey] with [wrappingKey] using the legacy keystream + HMAC.
   ///
   /// Output layout: `[12-byte IV][encrypted key][32-byte HMAC tag]`
   Uint8List wrapKey(List<int> fileKey, List<int> wrappingKey) {
     try {
       final iv = generateSecureRandom(ivLength);
-      final encrypted = _aesCtrEncrypt(
+      final encrypted = _legacyKeystreamTransform(
         Uint8List.fromList(fileKey),
         Uint8List.fromList(wrappingKey),
         iv,
@@ -110,7 +111,11 @@ class FileEncryptionDataSource {
         );
       }
 
-      return _aesCtrDecrypt(encrypted, Uint8List.fromList(wrappingKey), iv);
+      return _legacyKeystreamTransform(
+        encrypted,
+        Uint8List.fromList(wrappingKey),
+        iv,
+      );
     } catch (e) {
       if (e is EncryptionException) rethrow;
       throw EncryptionException(message: 'Key unwrapping failed: $e');
@@ -121,7 +126,8 @@ class FileEncryptionDataSource {
 
   /// Encrypts [sourceFile] into [destinationFile] in streaming 4 MB chunks.
   ///
-  /// Each chunk is encrypted with AES-CTR and authenticated with HMAC-SHA256.
+  /// Each chunk is transformed with the legacy keystream and authenticated
+  /// with HMAC-SHA256.
   /// The per-chunk nonce is derived from [iv] + chunk index to ensure
   /// nonce uniqueness without additional random generation.
   ///
@@ -130,7 +136,7 @@ class FileEncryptionDataSource {
   /// Chunk format on disk:
   /// ```
   /// [4 bytes: payload length (big-endian)]
-  /// [N bytes: AES-CTR encrypted chunk]
+  /// [N bytes: transformed chunk]
   /// [32 bytes: HMAC-SHA256 tag over (chunkIndex || encrypted data)]
   /// ```
   Future<void> encryptFile({
@@ -170,8 +176,8 @@ class FileEncryptionDataSource {
         // Derive a unique nonce for this chunk.
         final chunkNonce = _deriveChunkNonce(iv, chunkIndex);
 
-        // Encrypt the chunk.
-        final encrypted = _aesCtrEncrypt(
+        // Transform the chunk.
+        final encrypted = _legacyKeystreamTransform(
           Uint8List.fromList(plainChunk),
           Uint8List.fromList(key),
           chunkNonce,
@@ -273,7 +279,7 @@ class FileEncryptionDataSource {
         final chunkNonce = _deriveChunkNonce(iv, chunkIndex);
 
         // Decrypt and write the plaintext chunk.
-        final decrypted = _aesCtrDecrypt(
+        final decrypted = _legacyKeystreamTransform(
           Uint8List.fromList(encrypted),
           Uint8List.fromList(key),
           chunkNonce,
@@ -301,15 +307,17 @@ class FileEncryptionDataSource {
     }
   }
 
-  // ─── AES-CTR Core ────────────────────────────────────────────────────
+  // ─── Legacy Keystream Core ───────────────────────────────────────────
 
-  /// AES-CTR encryption using the `crypto` package's HMAC as a PRF
-  /// to generate a keystream.
+  /// Legacy HMAC-SHA256 keystream transform.
   ///
-  /// This is a simplified AES-CTR implementation that generates the
-  /// keystream by computing HMAC-SHA256(key, nonce || counter) for each
-  /// 32-byte block, then XORs with plaintext.
-  Uint8List _aesCtrEncrypt(Uint8List plaintext, Uint8List key, Uint8List nonce) {
+  /// This is not AES. It computes HMAC-SHA256(key, nonce || counter) for
+  /// each 32-byte block, then XORs that keystream with plaintext.
+  Uint8List _legacyKeystreamTransform(
+    Uint8List plaintext,
+    Uint8List key,
+    Uint8List nonce,
+  ) {
     final output = Uint8List(plaintext.length);
     final hmacKey = Hmac(sha256, key);
     int offset = 0;
@@ -318,8 +326,7 @@ class FileEncryptionDataSource {
     while (offset < plaintext.length) {
       // Generate keystream block: HMAC(key, nonce || counter)
       final counterBytes = _intToBytes(counter);
-      final keystreamBlock =
-          hmacKey.convert([...nonce, ...counterBytes]).bytes;
+      final keystreamBlock = hmacKey.convert([...nonce, ...counterBytes]).bytes;
 
       // XOR plaintext with keystream
       final blockLen = min(keystreamBlock.length, plaintext.length - offset);
@@ -332,12 +339,6 @@ class FileEncryptionDataSource {
     }
 
     return output;
-  }
-
-  /// AES-CTR decryption — symmetric with encryption (XOR is its own inverse).
-  Uint8List _aesCtrDecrypt(
-      Uint8List ciphertext, Uint8List key, Uint8List nonce) {
-    return _aesCtrEncrypt(ciphertext, key, nonce); // CTR mode is symmetric
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────
@@ -406,7 +407,10 @@ class FileEncryptionDataSource {
 
   /// Decodes 4 big-endian bytes to an int.
   int _bytesToInt(List<int> bytes) {
-    return Uint8List.fromList(bytes).buffer.asByteData().getInt32(0, Endian.big);
+    return Uint8List.fromList(bytes)
+        .buffer
+        .asByteData()
+        .getInt32(0, Endian.big);
   }
 
   /// UTF-8 encode a string.

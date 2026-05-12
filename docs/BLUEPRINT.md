@@ -1,6 +1,6 @@
 # VidMaster — Complete Project Blueprint
-**Based on PRD v1.1 + Live Code Review (April 2026)**
-**Framework:** Flutter 3.24+ / Dart 3.4+ | **Platform:** Android 8.0+ (API 26+)
+**Based on PRD v1.2 + Live Code Review (May 2026)**
+**Framework:** Flutter >=3.24.0 / Dart >=3.4.0 | **Platform:** Android 8.0+ (API 26+)
 
 ---
 
@@ -28,7 +28,7 @@
 20. [Data Flow Diagrams](#20-data-flow-diagrams)
 21. [Build Configuration](#21-build-configuration)
 22. [Feature Completion Matrix](#22-feature-completion-matrix)
-23. [Missing Features (Not Yet Built)](#23-missing-features-not-yet-built)
+23. [Known Gaps & Release Blockers](#23-known-gaps--release-blockers)
 
 ---
 
@@ -45,13 +45,13 @@
 | Flutter | 3.24.0+ |
 | Dart | 3.4.0+ |
 | Architecture | Clean Architecture (Domain / Data / Presentation) |
-| State Management | Riverpod 2.5.1 (StateNotifier pattern) |
-| Database | Isar 3.1.0 (video, audio, playlist, downloads) |
-| Encrypted Storage | Hive 1.1.0 (vault metadata only — never file bytes) |
-| Navigation | go_router 13.2.1 |
-| Video Engine | media_kit 1.1.11 + FFmpeg |
-| Audio Engine | just_audio 0.9.38 + audio_service 0.18.14 |
-| Encryption | AES-256-GCM streaming (PointyCastle) |
+| State Management | Riverpod 2.6.1 (StateNotifier pattern) |
+| Database | isar_community 3.3.2 (video, audio, playlist, downloads) |
+| Encrypted Storage | Hive 2.2.3 (vault metadata only — never file bytes) |
+| Navigation | go_router 17.2.3 |
+| Video Engine | media_kit 1.2.0 + FFmpeg (ffmpeg_kit_flutter_new 4.1.0) |
+| Audio Engine | just_audio 0.9.46 + audio_service 0.18.15 |
+| Encryption | Vault crypto under review; legacy authenticated transform must be replaced with audited AEAD |
 | DI Pattern | Provider overrides in ProviderScope (main.dart) |
 
 ---
@@ -106,7 +106,7 @@ External:
   media_kit (FFmpeg)  │  just_audio  │  audio_service
   flutter_downloader  │  Isar DB     │  Hive (vault only)
   local_auth          │  flutter_secure_storage
-  on_audio_query      │  PointyCastle (AES-256-GCM)
+  on_audio_query      │  Vault crypto replacement pending
 ```
 
 ---
@@ -117,11 +117,11 @@ External:
 vidmaster/
 ├── android/
 │   └── app/
-│       ├── build.gradle                    ← ABI splits config
+│       ├── build.gradle.kts                ← Kotlin DSL (flavors, signing, minification)
 │       └── src/main/
 │           ├── AndroidManifest.xml         ← All permissions + Service declarations
-│           └── kotlin/com/vidmaster/app/
-│               └── MainActivity.kt         ← PiP + Brightness Platform Channels
+│           └── kotlin/com/nagi/vidmaster/vidmaster/
+│               └── MainActivity.kt         ← PiP + Brightness + Storage + yt-dlp Platform Channels (extends AudioServiceActivity)
 │
 ├── lib/
 │   ├── main.dart                           ← App entry point + all initializations
@@ -175,7 +175,7 @@ vidmaster/
 │       │
 │       ├── music_player/
 │       │   ├── data/
-│       │   │   ├── audio_handler.dart                   ← VidMasterAudioHandler [TO CREATE]
+│       │   │   ├── audio_handler.dart                   ← VidMasterAudioHandler (implemented)
 │       │   │   ├── datasources/
 │       │   │   │   └── music_local_data_source.dart     ← on_audio_query + Isar
 │       │   │   ├── models/
@@ -230,7 +230,7 @@ vidmaster/
 │       │   ├── data/
 │       │   │   ├── datasources/
 │       │   │   │   ├── auth_local_data_source.dart       ← FlutterSecureStorage
-│       │   │   │   ├── file_encryption_data_source.dart  ← AES-256-GCM streaming
+│       │   │   │   ├── file_encryption_data_source.dart  ← legacy vault transform
 │       │   │   │   └── vault_metadata_data_source.dart   ← Hive box read/write
 │       │   │   ├── models/
 │       │   │   │   ├── encrypted_file_metadata_model.dart ← Hive @HiveType
@@ -264,7 +264,16 @@ vidmaster/
 │                   └── settings_screen.dart
 │
 └── test/
-    └── (unit tests — to be written)
+    ├── widget_test.dart
+    └── unit/
+        ├── settings_notifier_test.dart
+        ├── subtitle_settings_test.dart
+        ├── video_entity_test.dart
+        ├── video_file_test.dart
+        ├── video_playback_state_test.dart
+        ├── video_player_notifier_test.dart
+        └── security/
+            └── vault_repository_test.dart
 ```
 
 ---
@@ -277,7 +286,7 @@ vidmaster/
 |---|---|---|---|
 | `media_kit` | ^1.2.0 | FFmpeg video engine | VideoPlayerNotifier |
 | `media_kit_video` | ^2.0.1 | Video widget | VideoPlayerScreen |
-| `media_kit_libs_video` | ^1.0.0 | MPV/FFmpeg native libs (Android: libmpv) | Build/runtime |
+| `media_kit_libs_video` | ^1.0.7 | MPV/FFmpeg native libs (Android: libmpv) | Build/runtime |
 | `just_audio` | ^0.9.46 | Audio playback engine | MusicPlayerNotifier |
 | `audio_service` | ^0.18.15 | Background + notification | VidMasterAudioHandler |
 | `on_audio_query` | ^2.9.0 | MediaStore audio scan | MusicLocalDataSource |
@@ -313,7 +322,8 @@ vidmaster/
 | `flutter_lints` | ^5.0.0 | Lint rules |
 | `mocktail` | ^1.0.4 | Mocking for tests |
 | `isar_community_generator` | ^3.3.2 | Isar code gen |
-| `hive_generator` | ^2.0.1 | Hive adapters code gen |
+| `flutter_native_splash` | ^2.4.4 | Splash screen generation |
+| `flutter_launcher_icons` | ^0.14.3 | App icon generation |
 | `build_runner` | ^2.4.14 | Code generation runner |
 | `integration_test` | sdk | Integration tests |
 
@@ -442,33 +452,20 @@ class MainActivity : FlutterActivity() {
 }
 ```
 
-### 5.4 build.gradle — ABI Splits
+### 5.4 build.gradle.kts — ABI Splits
 
-```groovy
-android {
-    compileSdkVersion 34
-    defaultConfig {
-        minSdkVersion 26
-        targetSdkVersion 34
-    }
+> ⚠️ **RELEASE BLOCKER**: ABI splits are **NOT YET CONFIGURED** in the current `build.gradle.kts`.
+> Without splits, release APKs are ~193 MB (universal). This must be added before Play Store submission.
 
-    splits {
-        abi {
-            enable true
-            reset()
-            include "arm64-v8a", "armeabi-v7a", "x86_64"
-            universalApk false  // ← NEVER true (would be 150+ MB)
-        }
-    }
+The current `build.gradle.kts` uses Kotlin DSL. The following ABI splits block **needs to be added** to `android { }` before release:
 
-    // Different versionCode per ABI (required for Play Store)
-    ext.abiCodes = ["armeabi-v7a": 1, "arm64-v8a": 2, "x86_64": 3]
-
-    applicationVariants.configureEach { variant ->
-        variant.outputs.each { output ->
-            def code = project.ext.abiCodes.get(output.getFilter(OutputFile.ABI))
-            if (code != null) output.versionCodeOverride = code * 1000 + variant.versionCode
-        }
+```kotlin
+splits {
+    abi {
+        isEnable = true
+        reset()
+        include("arm64-v8a", "armeabi-v7a")
+        isUniversalApk = false  // NEVER true (would be 150+ MB)
     }
 }
 ```
@@ -479,7 +476,6 @@ android {
 |---|---|---|
 | `arm64-v8a` | All 2018+ phones | ~40–48 MB |
 | `armeabi-v7a` | Older 32-bit | ~35–42 MB |
-| `x86_64` | Emulators | ~45–52 MB |
 
 ---
 
@@ -591,7 +587,7 @@ android {
 | `mimeType` | `String` | e.g. "video/mp4" |
 | `originalFileSizeBytes` | `int` | Pre-encryption size |
 | `encFileName` | `String` | e.g. "a3f9c2b1.enc" |
-| `wrappedKey` | `List<int>` | AES key encrypted with PIN-derived KEK |
+| `wrappedKey` | `List<int>` | Per-file key wrapped with PIN-derived KEK |
 | `iv` | `List<int>` | 96-bit GCM nonce (unique per file) |
 | `pbkdf2Salt` | `List<int>` | 32-byte random salt |
 | `encryptedAt` | `DateTime` | Move-to-vault timestamp |
@@ -754,7 +750,7 @@ abstract interface class VaultRepository {
 | `DeletePlaylist` | `id: String` | `void` | `deletePlaylistProvider` |
 | `AddTrackToPlaylist` | `playlistId, trackId` | `void` | `addTrackToPlaylistProvider` |
 | `GetRecentlyPlayedTracks` | `limit: int` | `List<AudioTrackEntity>` | `getRecentlyPlayedTracksProvider` |
-| `RecordMusicPlay` | `trackId: String` | `void` | `recordMusicPlayProvider` ⚠️ ADD |
+| `RecordMusicPlay` | `trackId: String` | `void` | `recordMusicPlayProvider` |
 
 ---
 
@@ -1018,7 +1014,7 @@ decryptAndRestoreFromVaultProvider
 
 **Setters:** `setThemeMode()`, `setLocale()`, `setSeekDuration()`, `setAutoRotate()`, `setResumePlayback()`, `setDownloadPath()`, `setWifiOnlyDownloads()`, `setMaxConcurrentDownloads()`, `setAutoPipOnBack()`
 
-> ⚠️ **Missing:** Settings are not persisted across restarts. `SettingsNotifier` needs `SharedPreferences` or Hive to save/load on init.
+> ✅ **Settings persistence verified (May 2026):** `SettingsNotifier` uses `SharedPreferences` — all 9 fields are loaded on init and saved on each setter call. See `settings_provider.dart`.
 
 ---
 
@@ -1313,11 +1309,11 @@ User selects video file
 2. Generate 96-bit GCM nonce/IV (unique per file)
 3. Generate 32-byte PBKDF2 salt (unique per file)
 4. Derive KEK = PBKDF2(PIN, salt, 200,000 iterations, SHA-256, 32 bytes)
-5. Wrap file key = AES-256-GCM(fileKey, KEK, randomIV)
+5. Wrap file key with the current vault data source (AEAD replacement required)
          │
          ▼
 6. Open source file for reading (streaming)
-7. Loop: read 4MB chunk → encrypt with AES-256-GCM(fileKey, IV) → write to .enc
+7. Loop: read 4MB chunk → transform/authenticate with current vault data source → write to .enc
 8. Append GCM auth tag (16 bytes) at end of .enc file
 9. Close streams
          │
@@ -1334,7 +1330,7 @@ User selects video file
 ```
 1. Load EncryptedFileMetadata from Hive
 2. Derive KEK = PBKDF2(PIN, metadata.pbkdf2Salt, 200,000 iterations)
-3. Unwrap file key = AES-256-GCM-Decrypt(metadata.wrappedKey, KEK)
+3. Unwrap file key with the current vault data source
 4. Read .enc file: [12-byte IV][ciphertext][16-byte GCM tag]
 5. Decrypt in 4MB chunks, verify GCM tag per chunk
 6. If GCM tag mismatch → throw TamperedFileException (abort)
@@ -1500,6 +1496,8 @@ Generates: `lib/l10n/app_localizations.dart`
 
 ## 22. Feature Completion Matrix
 
+> **Status legend:** ✅ Complete · 🟡 Partial · 🔴 Missing · ⚠️ Needs Verification
+
 | Feature | PRD Priority | Status | Provider | Screen | Notes |
 |---|---|---|---|---|---|
 | Video Library (scan + display) | P0 | ✅ Complete | `videoLibraryProvider` | `VideoLibraryScreen` | |
@@ -1508,67 +1506,71 @@ Generates: `lib/l10n/app_localizations.dart`
 | Playback speed control | P0 | ✅ Complete | `videoPlayerProvider` | `VideoPlayerScreen` | |
 | Resume from position | P0 | ✅ Complete | `videoLibraryProvider` | `VideoThumbnailCard` | |
 | Screen lock during playback | P1 | ✅ Complete | `videoPlayerProvider` | `VideoPlayerScreen` | |
-| Subtitle loading (SRT/VTT) | P1 | ✅ Complete | `videoPlayerProvider` | `VideoPlayerScreen` | file_picker integration done |
+| Subtitle loading (SRT/VTT/ASS) | P1 | ✅ Complete | `videoPlayerProvider` | `VideoPlayerScreen` | file_picker integration done |
 | PiP mode | P0 | ✅ Complete | `videoPlayerProvider` | `VideoPlayerScreen` | Kotlin side implemented |
-| Video sharing | P1 | ✅ Complete | — | `VideoPlayerScreen` | share_plus wired |
+| Video sharing | P1 | 🟡 Partial | — | `VideoPlayerScreen` | share_plus in pubspec; no share button in library |
 | Thumbnails (lazy generation) | P1 | ✅ Complete | `videoLibraryProvider` | `VideoThumbnailCard` | |
 | Folder browsing | P1 | ✅ Complete | `videoLibraryProvider` | `VideoLibraryScreen` | |
 | Favorites | P1 | ✅ Complete | `videoLibraryProvider` | `VideoLibraryScreen` | |
 | Recently Played | P1 | ✅ Complete | `videoLibraryProvider` | `VideoLibraryScreen` | |
 | Music library scan | P0 | ✅ Complete | `musicLibraryProvider` | `MusicLibraryScreen` | on_audio_query |
 | Background music playback | P0 | ✅ Complete | `musicPlayerProvider` | — | AudioService wired |
-| Notification controls | P0 | ✅ Complete | `VidMasterAudioHandler` | — | audio_service integration |
-| Playlists | P0 | ✅ Complete | `musicLibraryProvider` | `MusicLibraryScreen` | |
+| Notification controls (music) | P0 | 🟡 Partial | `VidMasterAudioHandler` | — | Configured, partially wired |
+| Playlists | P0 | ✅ Complete | `musicLibraryProvider` | `PlaylistsScreen` | |
 | Shuffle + Repeat | P0 | ✅ Complete | `musicPlayerProvider` | `NowPlayingScreen` | |
 | Sleep timer | P1 | ✅ Complete | `musicPlayerProvider` | `NowPlayingScreen` | |
-| MiniPlayerBar | P0 | ✅ Complete | `musicPlayerProvider` | `MainShell` | No longer a stub |
+| MiniPlayerBar | P0 | ✅ Complete | `musicPlayerProvider` | `MainShell` | |
 | Download from URL | P0 | ✅ Complete | `downloaderProvider` | `DownloadsScreen` | |
 | Pause/Resume downloads | P0 | ✅ Complete | `downloaderProvider` | `DownloadsScreen` | |
 | Download notifications | P0 | ✅ Complete | `downloaderProvider` | — | flutter_downloader handles |
-| Wi-Fi only mode | P1 | ✅ Complete | `settingsProvider` | `SettingsScreen` | |
+| Wi-Fi only mode | P1 | 🟡 Partial | `settingsProvider` | `SettingsScreen` | Field exists in entity, no UI toggle |
 | Boot resume | P1 | ✅ Complete | — | — | Manifest + Receiver |
 | PIN lock | P0 | ✅ Complete | `appAuthProvider` | `LockScreen` | |
 | Biometric lock | P0 | ✅ Complete | `appAuthProvider` | `LockScreen` | |
-| Hidden Vault (encrypt/decrypt) | P1 | 🟡 Logic Ready | `vaultRepositoryProvider` | — | **VaultScreen UI missing** |
-| Settings persistence | P0 | 🔴 In-memory only | `settingsProvider` | `SettingsScreen` | **SharedPreferences missing** |
-| Cast / Chromecast | P1 | 🔴 Not built | — | — | Entire feature missing |
-| Equalizer | P2 | 🔴 Not built | — | — | |
-| RTL full pass | P1 | ✅ Complete | — | — | Global RTL via locale |
-| Unit Tests | P1 | 🔴 None | — | — | |
-| ProGuard / Signing | P0 (release) | 🔴 Not configured | — | — | |
+| Hidden Vault (encrypt/decrypt) | P1 | ⚠️ Stabilizing | `vaultRepositoryProvider` | `VaultScreen` | Auth guard works; crypto needs AEAD replacement; FLAG_SECURE pending |
+| Settings persistence | P0 | ✅ Complete | `settingsProvider` | `SettingsScreen` | SharedPreferences fully wired — load + save verified May 2026 |
+| Cast / Chromecast | P1 | 🟡 Partial | — | — | SDK initialized in main.dart; no full casting flow |
+| Equalizer | P2 | ✅ Complete | `equalizerProvider` | `EqualizerScreen` | Route `/equalizer` + AndroidEqualizer |
+| RTL full pass | P1 | 🟡 Partial | — | — | Locale switching works; refinement pass not done |
+| Unit Tests | P1 | 🟡 Partial (8 files) | — | — | 7 unit + 1 widget test |
+| ProGuard / Signing | P0 (release) | 🟡 Partial | — | — | R8+shrink enabled; key.properties required | |
 
 ---
 
-## 23. Missing Features (Not Yet Built)
+## 23. Known Gaps & Release Blockers
 
-### 🔴 Critical (blocks release)
+### 🔴 Release Blockers
 
-| # | Feature | Where to Build | Effort |
+| # | Issue | Where | Effort |
 |---|---|---|---|
-| 1 | **VaultScreen UI** — list vault items, move to vault, restore | New screen | 4 hrs |
-| 2 | **Settings persistence** — SharedPreferences or Hive | `settings_provider.dart` | 2 hrs |
+| 1 | **ABI Splits not configured** — APK is ~193 MB universal | `android/app/build.gradle.kts` | 1 hr |
+| 2 | **Release signing** — `key.properties` required | `android/` | 1 hr |
+| 3 | **QA on physical devices** — not yet performed | Manual testing | 1–2 days |
 
 ### 🟡 Important (affects quality)
 
-| # | Feature | Where to Build | Effort |
+| # | Issue | Where | Effort |
 |---|---|---|---|
-| 3 | **Unit Tests** for Security / Downloader layers | `test/` | 4 hrs |
+| 4 | **Vault AEAD replacement** — legacy authenticated transform must be replaced | `file_encryption_data_source.dart` | 4 hrs |
+| 5 | **RTL refinement pass** — no dedicated RTL QA done | All screens | 4 hrs |
+| 6 | **FLAG_SECURE** — missing on vault screen | `vault_screen.dart` | 30 min |
+| 7 | **More unit tests** — 8 exist, need broader coverage | `test/` | 4 hrs |
+| 8 | **Music notification controls** — partially wired | `VidMasterAudioHandler` | 2 hrs |
+| 9 | **Chromecast full flow** — SDK initialized but no casting UI | `features/` | 3–5 days |
 
 ### 🔵 Future (v2.0)
 
 | Feature | Effort |
 |---|---|
-| Cast / Chromecast | 3–5 days |
-| Equalizer UI | 1–2 days |
+| Full Chromecast casting flow | 3–5 days |
 | Unit Tests (full coverage) | 2–3 days |
-| ProGuard rules | 4 hrs |
-| App signing config | 1 hr |
-| YouTube/social download (yt-dlp) | Not planned v1 |
+| ProGuard rules verification | 4 hrs |
+| YouTube/social download stabilization | Ongoing (experimental flavor) |
 | iOS port | Not planned v1 |
 
 
 ---
 
-*End of Blueprint — VidMaster v1.1*
-*Total project (lib + test): 138 Dart files | ~27,395 lines of code*
-*Last reviewed: 2026-05-07*
+*End of Blueprint — VidMaster v1.2*
+*Total project (lib + test): ~138 Dart files*
+*Last reviewed: 2026-05-08*

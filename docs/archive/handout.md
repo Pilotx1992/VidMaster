@@ -1,7 +1,17 @@
+> [!WARNING]
+> **ARCHIVED DOCUMENT — May 2026**
+> This file contains outdated package versions (e.g., `isar: ^3.1.0+1`, `media_kit: ^1.1.11`, `riverpod_annotation: ^2.3.5`).
+> The actual versions are in `pubspec.yaml`. For current architecture reference, use:
+> - **`BLUEPRINT.md`** — Full architectural reference
+> - **`mapper.md`** — Precise codebase map for agents
+> - **`X.md`** — Video player technical blueprint
+>
+> This file is preserved for historical context only. Do not rely on version numbers or status claims below.
+
 # VidMaster — Pro Video Player Engine Implementation Guide
-## Execution Blueprint · v5.1 (PRD-Aligned)
-> **This document serves as the definitive implementation guide for VidMaster's video player engine per PRD v5.1.**
-> **Read each section thoroughly before executing any step. Follow professional engineering practices.**
+## Execution Blueprint · v5.1 (PRD-Aligned) — ⚠️ ARCHIVED
+> **This document was the implementation guide for VidMaster's video player engine per PRD v5.1.**
+> **Package versions below are OUTDATED. See `pubspec.yaml` for current versions.**
 
 ---
 
