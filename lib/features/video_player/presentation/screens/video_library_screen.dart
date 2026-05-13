@@ -754,22 +754,25 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete video?'),
-        content: Text(
-          'This will permanently remove\n"${video.fileName}"\nfrom your device.',
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.ltr,
+        child: AlertDialog(
+          title: const Text('Delete video?'),
+          content: Text(
+            'This will permanently remove\n"${video.fileName}"\nfrom your device.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+              child: const Text('Delete'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Delete'),
-          ),
-        ],
       ),
     );
 

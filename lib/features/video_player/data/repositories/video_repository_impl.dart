@@ -54,6 +54,19 @@ class VideoRepositoryImpl implements VideoRepository {
     return result['path'] as String? ?? fallbackTargetPath;
   }
 
+  Future<bool> _deleteViaScopedStorage({
+    required String filePath,
+  }) async {
+    if (!Platform.isAndroid) return false;
+
+    final result = await _storageChannel.invokeMapMethod<String, dynamic>(
+      'deleteMediaFile',
+      <String, dynamic>{'filePath': filePath},
+    );
+
+    return result != null && result['handled'] == true;
+  }
+
   // ─── Library Sync ─────────────────────────────────────────────────────
 
   @override
@@ -323,12 +336,16 @@ class VideoRepositoryImpl implements VideoRepository {
   @override
   Future<Either<Failure, void>> deleteVideo(String filePath) async {
     try {
-      // 1. File first. If this throws (permission, missing file, scoped-
-      //    storage rejection on Android 11+), we abort and keep the DB row
-      //    so the library still reflects what's actually on disk.
-      final file = File(filePath);
-      if (await file.exists()) {
-        await file.delete();
+      // 1. File first. On Android shared media may require MediaStore delete
+      //    permission instead of direct File.delete().
+      final handledByScopedStorage = await _deleteViaScopedStorage(
+        filePath: filePath,
+      );
+      if (!handledByScopedStorage) {
+        final file = File(filePath);
+        if (await file.exists()) {
+          await file.delete();
+        }
       }
       // 2. DB row. Best-effort; if Isar fails here the file is already gone
       //    so the next syncLibrary() will eventually clean it up.

@@ -135,13 +135,19 @@ class MainActivity : AudioServiceActivity() {
 private class StorageChannelHandler(
     private val activity: Activity,
 ) {
-    private data class PendingRename(
+    private enum class PendingOperationType {
+        RENAME,
+        DELETE,
+    }
+
+    private data class PendingOperation(
+        val type: PendingOperationType,
         val mediaUri: android.net.Uri,
         val filePath: String,
-        val newDisplayName: String,
+        val newDisplayName: String? = null,
     )
 
-    private var pendingRename: PendingRename? = null
+    private var pendingOperation: PendingOperation? = null
     private var pendingResult: MethodChannel.Result? = null
 
     fun handle(call: MethodCall, result: MethodChannel.Result): Boolean =
@@ -160,38 +166,60 @@ private class StorageChannelHandler(
                 renameMediaFile(call, result)
                 true
             }
+            "deleteMediaFile" -> {
+                deleteMediaFile(call, result)
+                true
+            }
             else -> false
         }
 
     fun onActivityResult(requestCode: Int, resultCode: Int): Boolean {
-        if (requestCode != REQUEST_RENAME_MEDIA) {
+        if (requestCode != REQUEST_RENAME_MEDIA && requestCode != REQUEST_DELETE_MEDIA) {
             return false
         }
 
-        val currentRename = pendingRename
+        val currentOperation = pendingOperation
         val currentResult = pendingResult
         clearPending()
 
-        if (currentRename == null || currentResult == null) {
+        if (currentOperation == null || currentResult == null) {
             return true
         }
 
         if (resultCode != Activity.RESULT_OK) {
-            currentResult.error(
-                "WRITE_ACCESS_DENIED",
-                "Write access was not granted for this media file.",
-                null,
-            )
+            val message =
+                if (currentOperation.type == PendingOperationType.DELETE) {
+                    "Delete access was not granted for this media file."
+                } else {
+                    "Write access was not granted for this media file."
+                }
+            currentResult.error("WRITE_ACCESS_DENIED", message, null)
             return true
         }
 
-        renameViaMediaStore(
-            mediaUri = currentRename.mediaUri,
-            filePath = currentRename.filePath,
-            newDisplayName = currentRename.newDisplayName,
-            result = currentResult,
-            allowPermissionRequest = false,
-        )
+        when (currentOperation.type) {
+            PendingOperationType.RENAME -> {
+                val newDisplayName = currentOperation.newDisplayName
+                if (newDisplayName.isNullOrBlank()) {
+                    currentResult.error("RENAME_FAILED", "Missing target file name.", null)
+                    return true
+                }
+                renameViaMediaStore(
+                    mediaUri = currentOperation.mediaUri,
+                    filePath = currentOperation.filePath,
+                    newDisplayName = newDisplayName,
+                    result = currentResult,
+                    allowPermissionRequest = false,
+                )
+            }
+            PendingOperationType.DELETE ->
+                deleteViaMediaStore(
+                    mediaUri = currentOperation.mediaUri,
+                    filePath = currentOperation.filePath,
+                    result = currentResult,
+                    allowPermissionRequest = false,
+                )
+        }
         return true
     }
 
@@ -219,6 +247,33 @@ private class StorageChannelHandler(
             mediaUri = mediaUri,
             filePath = filePath,
             newDisplayName = newDisplayName,
+            result = result,
+            allowPermissionRequest = true,
+        )
+    }
+
+    private fun deleteMediaFile(call: MethodCall, result: MethodChannel.Result) {
+        val filePath = call.argument<String>("filePath")
+
+        if (filePath.isNullOrBlank()) {
+            result.error("INVALID_ARGUMENT", "filePath is required.", null)
+            return
+        }
+
+        if (pendingResult != null) {
+            result.error("STORAGE_BUSY", "Another storage operation is already awaiting approval.", null)
+            return
+        }
+
+        val mediaUri = resolveMediaUri(filePath)
+        if (mediaUri == null) {
+            result.success(mapOf("handled" to false))
+            return
+        }
+
+        deleteViaMediaStore(
+            mediaUri = mediaUri,
+            filePath = filePath,
             result = result,
             allowPermissionRequest = true,
         )
@@ -255,6 +310,7 @@ private class StorageChannelHandler(
                 return
             }
             launchPermissionRequest(
+                type = PendingOperationType.RENAME,
                 mediaUri = mediaUri,
                 filePath = filePath,
                 newDisplayName = newDisplayName,
@@ -267,6 +323,7 @@ private class StorageChannelHandler(
                 return
             }
             launchPermissionRequest(
+                type = PendingOperationType.RENAME,
                 mediaUri = mediaUri,
                 filePath = filePath,
                 newDisplayName = newDisplayName,
@@ -280,14 +337,61 @@ private class StorageChannelHandler(
         }
     }
 
-    private fun launchPermissionRequest(
+    private fun deleteViaMediaStore(
         mediaUri: android.net.Uri,
         filePath: String,
-        newDisplayName: String,
+        result: MethodChannel.Result,
+        allowPermissionRequest: Boolean,
+    ) {
+        try {
+            val deletedRows = activity.contentResolver.delete(mediaUri, null, null)
+            if (deletedRows <= 0) {
+                result.error("DELETE_FAILED", "MediaStore did not delete the file.", null)
+                return
+            }
+
+            result.success(mapOf("handled" to true))
+        } catch (e: RecoverableSecurityException) {
+            if (!allowPermissionRequest) {
+                result.error("DELETE_FAILED", e.message, null)
+                return
+            }
+            launchPermissionRequest(
+                type = PendingOperationType.DELETE,
+                mediaUri = mediaUri,
+                filePath = filePath,
+                result = result,
+                intentSender = e.userAction.actionIntent.intentSender,
+            )
+        } catch (e: SecurityException) {
+            if (!allowPermissionRequest || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                result.error("DELETE_FAILED", e.message, null)
+                return
+            }
+            launchPermissionRequest(
+                type = PendingOperationType.DELETE,
+                mediaUri = mediaUri,
+                filePath = filePath,
+                result = result,
+                intentSender = MediaStore
+                    .createDeleteRequest(activity.contentResolver, listOf(mediaUri))
+                    .intentSender,
+            )
+        } catch (e: Exception) {
+            result.error("DELETE_FAILED", e.message, null)
+        }
+    }
+
+    private fun launchPermissionRequest(
+        type: PendingOperationType,
+        mediaUri: android.net.Uri,
+        filePath: String,
         result: MethodChannel.Result,
         intentSender: IntentSender,
+        newDisplayName: String? = null,
     ) {
-        pendingRename = PendingRename(
+        pendingOperation = PendingOperation(
+            type = type,
             mediaUri = mediaUri,
             filePath = filePath,
             newDisplayName = newDisplayName,
@@ -297,7 +401,7 @@ private class StorageChannelHandler(
         try {
             activity.startIntentSenderForResult(
                 intentSender,
-                REQUEST_RENAME_MEDIA,
+                if (type == PendingOperationType.RENAME) REQUEST_RENAME_MEDIA else REQUEST_DELETE_MEDIA,
                 null,
                 0,
                 0,
@@ -305,7 +409,9 @@ private class StorageChannelHandler(
             )
         } catch (e: IntentSender.SendIntentException) {
             clearPending()
-            result.error("RENAME_FAILED", e.message, null)
+            val errorCode =
+                if (type == PendingOperationType.DELETE) "DELETE_FAILED" else "RENAME_FAILED"
+            result.error(errorCode, e.message, null)
         }
     }
 
@@ -378,11 +484,12 @@ private class StorageChannelHandler(
     }
 
     private fun clearPending() {
-        pendingRename = null
+        pendingOperation = null
         pendingResult = null
     }
 
     private companion object {
         const val REQUEST_RENAME_MEDIA = 4107
+        const val REQUEST_DELETE_MEDIA = 4108
     }
 }
