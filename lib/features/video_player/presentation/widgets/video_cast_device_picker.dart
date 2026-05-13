@@ -1,12 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vidmaster/features/video_player/domain/entities/video_file.dart';
 
 import '../providers/video_cast_provider.dart';
-import '../providers/video_player_provider.dart';
 
 class VideoCastDevicePicker extends ConsumerStatefulWidget {
-  const VideoCastDevicePicker({super.key});
+  final VideoFile video;
+  final Duration position;
+  final Duration duration;
+  final FutureOr<void> Function() onCastStarted;
+
+  const VideoCastDevicePicker({
+    super.key,
+    required this.video,
+    required this.position,
+    required this.duration,
+    required this.onCastStarted,
+  });
 
   @override
   ConsumerState<VideoCastDevicePicker> createState() =>
@@ -64,7 +78,7 @@ class _VideoCastDevicePickerState extends ConsumerState<VideoCastDevicePicker> {
               data: _buildDeviceList,
               loading: () => const _SearchingDevices(),
               error: (error, _) => _PickerMessage(
-                icon: Icons.error_outline,
+                icon: Symbols.error_outline,
                 message: 'Unable to search for Cast devices.',
                 detail: '$error',
               ),
@@ -77,7 +91,11 @@ class _VideoCastDevicePickerState extends ConsumerState<VideoCastDevicePicker> {
 
   Widget _buildDeviceList(List<GoogleCastDevice> devices) {
     if (devices.isEmpty) {
-      return const _SearchingDevices();
+      return const _PickerMessage(
+        icon: Symbols.cast_connected,
+        message: 'No Cast devices found.',
+        detail: 'Make sure your Chromecast is powered on and on this network.',
+      );
     }
 
     return ConstrainedBox(
@@ -90,7 +108,7 @@ class _VideoCastDevicePickerState extends ConsumerState<VideoCastDevicePicker> {
           final isBusy = _busyDeviceId == device.deviceID;
           return ListTile(
             enabled: !_isBusy,
-            leading: const Icon(Icons.cast, color: Colors.white70),
+            leading: const Icon(Symbols.cast, color: Colors.white70),
             title: Text(
               device.friendlyName,
               style: const TextStyle(color: Colors.white),
@@ -122,14 +140,6 @@ class _VideoCastDevicePickerState extends ConsumerState<VideoCastDevicePicker> {
 
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    final playerState = ref.read(videoPlayerProvider);
-    final video = playerState.currentVideo;
-
-    if (video == null) {
-      _showSnackBar(messenger, 'No video is currently loaded.');
-      _clearBusy();
-      return;
-    }
 
     final castSession = ref.read(videoCastSessionProvider);
     final sessionResult = await castSession.startSessionWithDevice(device);
@@ -141,9 +151,9 @@ class _VideoCastDevicePickerState extends ConsumerState<VideoCastDevicePicker> {
     }
 
     final loadResult = await castSession.castVideo(
-      video,
-      startPosition: playerState.position,
-      duration: playerState.duration,
+      widget.video,
+      startPosition: widget.position,
+      duration: widget.duration,
       autoPlay: true,
     );
     if (!mounted) return;
@@ -153,16 +163,20 @@ class _VideoCastDevicePickerState extends ConsumerState<VideoCastDevicePicker> {
       return;
     }
 
-    try {
-      await ref.read(videoPlayerProvider.notifier).pause();
-    } catch (_) {
-      // Casting already succeeded; local pause is best-effort and should not
-      // leave the picker stuck if the local player is mid-transition.
-    }
-    if (!mounted) return;
-
     navigator.pop();
-    _showSnackBar(messenger, loadResult.message);
+    _showSnackBar(messenger, 'Casting started');
+    _notifyCastStarted();
+  }
+
+  void _notifyCastStarted() {
+    try {
+      final result = widget.onCastStarted();
+      if (result is Future<void>) {
+        unawaited(result.catchError((_) {}));
+      }
+    } catch (_) {
+      // Casting succeeded; local playback pause is best-effort.
+    }
   }
 
   Future<void> _disconnect() async {

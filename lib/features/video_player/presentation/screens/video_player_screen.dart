@@ -243,8 +243,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen>
                             tween: _controlsFadeTween,
                             duration: const Duration(milliseconds: 240),
                             curve: Curves.easeOutCubic,
-                            builder: (context, t, child) =>
-                                Opacity(opacity: t, child: child),
+                            builder: (context, t, child) {
+                              // Android platform views do not reliably render
+                              // inside the animated controls opacity layer,
+                              // which hides the native CAF cast button in the
+                              // player top bar. Keep the same show/hide logic,
+                              // but skip the fade host on Android.
+                              if (!kIsWeb &&
+                                  defaultTargetPlatform ==
+                                      TargetPlatform.android) {
+                                return child!;
+                              }
+                              return Opacity(opacity: t, child: child);
+                            },
                             child: isLandscape
                                 ? LandscapePlayerControls(
                                     state: state,

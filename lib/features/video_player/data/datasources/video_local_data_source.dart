@@ -109,18 +109,29 @@ class VideoLocalDataSourceImpl implements VideoLocalDataSource {
 
   @override
   Future<void> clearRecentlyPlayed() async {
-    // Only touch rows that actually have a timestamp; this keeps the write
-    // small on libraries with a long tail of never-played files.
+    // Wipe all traces of recent history: timestamps, positions, and counts.
+    // This ensures that when the user clears recent, the videos are completely
+    // removed from the "Recent" tab and any resume progress is lost.
     final played = await isar.videoModels
         .filter()
         .isInVaultEqualTo(false)
         .and()
-        .lastPlayedAtIsNotNull()
+        .group((q) => q
+            .lastPlayedAtIsNotNull()
+            .or()
+            .lastPositionMsIsNotNull()
+            .or()
+            .playCountGreaterThan(0))
         .findAll();
+
     if (played.isEmpty) return;
+
     for (final m in played) {
       m.lastPlayedAt = null;
+      m.lastPositionMs = null;
+      m.playCount = 0;
     }
+
     await isar.writeTxn(() async {
       await isar.videoModels.putAll(played);
     });

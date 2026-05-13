@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../domain/entities/video_file.dart';
+import 'package:vidmaster/features/video_player/domain/entities/video_file.dart';
 
 enum MiniPlayerStatus {
   hidden,

@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:vidmaster/features/video_player/domain/entities/video_file.dart';
 import '../../../music_player/presentation/providers/music_player_provider.dart';
-import '../../domain/entities/video_file.dart';
 import '../../domain/entities/video_playback_state.dart';
 import '../../domain/entities/subtitle_settings.dart';
 import '../../domain/repositories/resume_repository.dart';
@@ -382,6 +382,36 @@ class VideoPlayerNotifier extends StateNotifier<VideoPlayerState> {
     }
     await openVideo(prev, queue: queue);
     bumpControlsAutoHide();
+  }
+
+  void replaceVideoReferences({
+    required String originalPath,
+    required VideoFile updatedVideo,
+  }) {
+    final updatedQueue = state.queue
+        .map((video) => video.path == originalPath ? updatedVideo : video)
+        .toList(growable: false);
+    final updatedCurrentVideo = state.currentVideo?.path == originalPath
+        ? updatedVideo
+        : state.currentVideo;
+
+    var updatedQueueIndex = state.queueIndex;
+    if (updatedQueue.isEmpty) {
+      updatedQueueIndex = -1;
+    } else if (updatedCurrentVideo != null) {
+      final matchedIndex = updatedQueue.indexWhere(
+        (video) => video.path == updatedCurrentVideo.path,
+      );
+      if (matchedIndex >= 0) {
+        updatedQueueIndex = matchedIndex;
+      }
+    }
+
+    state = state.copyWith(
+      currentVideo: updatedCurrentVideo,
+      queue: updatedQueue,
+      queueIndex: updatedQueueIndex,
+    );
   }
 
   Future<void> play() async {

@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
+import 'package:vidmaster/features/video_player/domain/entities/video_file.dart';
 
-import '../../domain/entities/video_file.dart';
 import 'local_media_server.dart';
 
 enum VideoCastFailureReason {

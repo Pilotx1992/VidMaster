@@ -13,6 +13,9 @@
 # Flutter Downloader preserves
 -keep class vn.hunghd.flutterdownloader.** { *; }
 
+# Google Cast preserves
+-keep class com.vidmaster.app.cast.** { *; }
+
 # General Flutter
 -keep class io.flutter.app.** { *; }
 -keep class io.flutter.plugin.** { *; }

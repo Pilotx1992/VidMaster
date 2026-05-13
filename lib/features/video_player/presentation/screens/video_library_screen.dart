@@ -1,19 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:io';
 
 import 'package:share_plus/share_plus.dart';
+import 'package:vidmaster/features/video_player/domain/entities/video_file.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/states/states.dart';
 import '../../../../core/widgets/icons/custom_sort_arrows_icon.dart';
 import '../../domain/entities/video_entity.dart';
-import '../../domain/entities/video_file.dart';
 import 'video_player_screen.dart' show VideoPlayerArgs;
 import '../providers/video_library_provider.dart';
+import '../providers/video_player_provider.dart';
 import '../widgets/video_actions_sheet.dart';
+import '../widgets/video_cast_button.dart';
 import '../widgets/video_thumbnail_card.dart';
 
 /// Derived (memoized) queue for the current view (after search + sort).
@@ -34,6 +37,9 @@ class VideoLibraryScreen extends ConsumerStatefulWidget {
 }
 
 class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
+  static final RegExp _invalidRenameCharactersPattern =
+      RegExp(r'[\/\\:\*\?"<>\|]');
+
   @override
   void initState() {
     super.initState();
@@ -107,23 +113,28 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
                 )
               : const Text('Videos'),
           actions: [
+            if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+              Builder(
+                builder: _buildCastToolbarAction,
+              )
+            else
+              IconButton(
+                icon: const Icon(Symbols.cast),
+                tooltip: 'Cast',
+                onPressed: () {
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('Cast — coming soon'),
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                },
+              ),
             IconButton(
-              icon: const Icon(Icons.cast),
-              tooltip: 'Cast',
-              onPressed: () {
-                ScaffoldMessenger.of(context)
-                  ..clearSnackBars()
-                  ..showSnackBar(
-                    const SnackBar(
-                      content: Text('Cast — coming soon'),
-                      behavior: SnackBarBehavior.floating,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-              },
-            ),
-            IconButton(
-              icon: Icon(isSearchMode ? Icons.close : Icons.search),
+              icon: Icon(isSearchMode ? Symbols.close : Symbols.search),
               onPressed: () {
                 final notifier = ref.read(videoLibraryProvider.notifier);
                 if (isSearchMode) {
@@ -134,39 +145,67 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
               },
             ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
+              icon: const Icon(Symbols.more_vert),
               itemBuilder: (context) {
                 // Disable "Clear recent" when there's nothing to clear so the
                 // user doesn't tap it on an empty state and wonder if it did
                 // anything. Re-read here (not from the outer scope) so the
                 // item updates the next time the menu opens.
-                final hasRecent = ref
-                    .read(videoLibraryProvider)
-                    .recentlyPlayed
-                    .isNotEmpty;
+                final hasRecent =
+                    ref.read(videoLibraryProvider).recentlyPlayed.isNotEmpty;
                 return [
                   const PopupMenuItem(
                     value: 'sync',
-                    child: Row(
-                      children: [
-                        Icon(Icons.sync, size: 20),
-                        SizedBox(width: 12),
-                        Text('Sync with device'),
-                      ],
+                    child: _LtrPopupMenuItemContent(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Symbols.sync, size: 20),
+                          SizedBox(width: 12),
+                          Text('Sync with device'),
+                        ],
+                      ),
                     ),
                   ),
                   PopupMenuItem(
                     value: 'clear_recent',
                     enabled: hasRecent,
-                    child: const Text('Clear recent'),
+                    child: const _LtrPopupMenuItemContent(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Symbols.history, size: 20),
+                          SizedBox(width: 12),
+                          Text('Clear recent'),
+                        ],
+                      ),
+                    ),
                   ),
                   const PopupMenuItem(
                     value: 'downloads',
-                    child: Text('Downloads'),
+                    child: _LtrPopupMenuItemContent(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Symbols.download, size: 20),
+                          SizedBox(width: 12),
+                          Text('Downloads'),
+                        ],
+                      ),
+                    ),
                   ),
                   const PopupMenuItem(
                     value: 'settings',
-                    child: Text('Settings'),
+                    child: _LtrPopupMenuItemContent(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Symbols.settings, size: 20),
+                          SizedBox(width: 12),
+                          Text('Settings'),
+                        ],
+                      ),
+                    ),
                   ),
                 ];
               },
@@ -186,9 +225,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
                     );
                     break;
                   case 'clear_recent':
-                    await ref
-                        .read(videoLibraryProvider.notifier)
-                        .clearRecent();
+                    await ref.read(videoLibraryProvider.notifier).clearRecent();
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -209,8 +246,9 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
           ],
         ),
         body: RefreshIndicator(
-          onRefresh: () =>
-              ref.read(videoLibraryProvider.notifier).loadLibrary(forceSync: true),
+          onRefresh: () => ref
+              .read(videoLibraryProvider.notifier)
+              .loadLibrary(forceSync: true),
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
@@ -229,7 +267,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
                       onPressed: () => ref
                           .read(videoLibraryProvider.notifier)
                           .exitFolderBrowse(),
-                      icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                      icon: const Icon(Symbols.arrow_back_rounded, size: 20),
                       label: const Text('All folders'),
                     ),
                   ),
@@ -282,6 +320,134 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
     );
   }
 
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  String _videoFileName(String filePath) {
+    return filePath.split(RegExp(r'[\\/]')).last;
+  }
+
+  String _videoExtension(String filePath) {
+    final fileName = _videoFileName(filePath);
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0 || dotIndex == fileName.length - 1) {
+      return '';
+    }
+    return fileName.substring(dotIndex);
+  }
+
+  String _videoBaseName(String filePath) {
+    final fileName = _videoFileName(filePath);
+    final extension = _videoExtension(filePath);
+    if (extension.isEmpty) {
+      return fileName;
+    }
+    return fileName.substring(0, fileName.length - extension.length);
+  }
+
+  String _normalizedRenameBaseName(String rawInput, String extension) {
+    final trimmed = rawInput.trim();
+    if (extension.isNotEmpty &&
+        trimmed.toLowerCase().endsWith(extension.toLowerCase())) {
+      return trimmed
+          .substring(0, trimmed.length - extension.length)
+          .trimRight();
+    }
+    return trimmed;
+  }
+
+  String _targetVideoPath({
+    required String originalFilePath,
+    required String newBaseName,
+  }) {
+    final parentPath = File(originalFilePath).parent.path;
+    return '$parentPath${Platform.pathSeparator}$newBaseName${_videoExtension(originalFilePath)}';
+  }
+
+  VideoFile _videoFileFromEntity(VideoEntity video) {
+    return VideoFile(
+      path: video.filePath,
+      name: video.fileName,
+      duration: video.durationMs == null
+          ? null
+          : Duration(milliseconds: video.durationMs!),
+    );
+  }
+
+  Future<String?> _validateRenameBaseName({
+    required VideoEntity video,
+    required String rawName,
+  }) async {
+    final extension = _videoExtension(video.filePath);
+    final normalizedName = _normalizedRenameBaseName(rawName, extension);
+    if (normalizedName.isEmpty) {
+      return 'Video name cannot be empty.';
+    }
+    if (normalizedName == _videoBaseName(video.filePath)) {
+      return 'Enter a different name.';
+    }
+    if (_invalidRenameCharactersPattern.hasMatch(normalizedName)) {
+      return 'Name cannot contain / \\ : * ? " < > |';
+    }
+
+    final sourceFile = File(video.filePath);
+    if (!await sourceFile.exists()) {
+      return 'File not found.';
+    }
+
+    final targetPath = _targetVideoPath(
+      originalFilePath: video.filePath,
+      newBaseName: normalizedName,
+    );
+    if (await File(targetPath).exists()) {
+      return 'A file with that name already exists in this folder.';
+    }
+
+    return null;
+  }
+
+  Future<String?> _showRenameDialog(VideoEntity video) async {
+    final extension = _videoExtension(video.filePath);
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => _RenameVideoDialog(
+        initialName: _videoBaseName(video.filePath),
+        extension: extension,
+        validateName: (rawName) => _validateRenameBaseName(
+          video: video,
+          rawName: rawName,
+        ),
+        normalizeName: (rawName) =>
+            _normalizedRenameBaseName(rawName, extension),
+      ),
+    );
+  }
+
+  Widget _buildCastToolbarAction(BuildContext context) {
+    final iconColor = IconTheme.of(context).color;
+    final useDarkIcon = iconColor == null
+        ? Theme.of(context).brightness == Brightness.light
+        : iconColor.computeLuminance() < 0.5;
+
+    return VideoCastButton(
+      video: null,
+      position: Duration.zero,
+      duration: Duration.zero,
+      onCastStarted: () {},
+      useDarkNativeIcon: useDarkIcon,
+    );
+  }
+
   List<Widget> _buildSlivers({
     required VideoLibraryStatus status,
     required VideoLibraryTab activeTab,
@@ -309,7 +475,8 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
           hasScrollBody: false,
           child: ErrorStateWidget(
             message: errorMessage ?? 'Failed to load videos',
-            onRetry: () => ref.read(videoLibraryProvider.notifier).loadLibrary(),
+            onRetry: () =>
+                ref.read(videoLibraryProvider.notifier).loadLibrary(),
           ),
         ),
       ];
@@ -320,7 +487,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
         SliverFillRemaining(
           hasScrollBody: false,
           child: EmptyStateWidget(
-            icon: Icons.video_library_outlined,
+            icon: Symbols.video_library,
             message: 'No videos found on your device',
           ),
         ),
@@ -334,7 +501,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
           SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyStateWidget(
-              icon: Icons.folder_open_outlined,
+              icon: Symbols.folder_open,
               message: 'No folders yet',
             ),
           ),
@@ -347,19 +514,17 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final name = sorted[index];
-                final count =
-                    videos.where((v) => v.folderName == name).length;
+                final count = videos.where((v) => v.folderName == name).length;
                 return ListTile(
-                  leading: const Icon(Icons.folder_outlined),
+                  leading: const Icon(Symbols.folder),
                   title: Text(
                     name.isEmpty ? '(Unknown)' : name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text('$count videos'),
-                  onTap: () => ref
-                      .read(videoLibraryProvider.notifier)
-                      .openFolder(name),
+                  onTap: () =>
+                      ref.read(videoLibraryProvider.notifier).openFolder(name),
                 );
               },
               childCount: sorted.length,
@@ -369,7 +534,9 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
       ];
     }
 
-    if (displayVideos.isEmpty && isSearchMode && searchQuery.trim().isNotEmpty) {
+    if (displayVideos.isEmpty &&
+        isSearchMode &&
+        searchQuery.trim().isNotEmpty) {
       return const [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -384,7 +551,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
           SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyStateWidget(
-              icon: Icons.history,
+              icon: Symbols.history,
               message: 'No recently played videos',
             ),
           ),
@@ -395,21 +562,19 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
           SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyStateWidget(
-              icon: Icons.favorite_border,
+              icon: Symbols.favorite_border,
               message: 'No favorite videos yet',
             ),
           ),
         ];
       }
-      if (activeTab == VideoLibraryTab.folders &&
-          selectedFolderName != null) {
+      if (activeTab == VideoLibraryTab.folders && selectedFolderName != null) {
         return [
           SliverFillRemaining(
             hasScrollBody: false,
             child: EmptyStateWidget(
-              icon: Icons.video_library_outlined,
-              message:
-                  'No videos in folder \u201c$selectedFolderName\u201d',
+              icon: Symbols.video_library,
+              message: 'No videos in folder \u201c$selectedFolderName\u201d',
             ),
           ),
         ];
@@ -430,10 +595,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
     void diagPush(int index) {
       if (!kDebugMode) return;
       final tapped = queueSnapshot[index];
-      final firstNames = queueSnapshot
-          .take(10)
-          .map((v) => v.name)
-          .join(' | ');
+      final firstNames = queueSnapshot.take(10).map((v) => v.name).join(' | ');
       // Print the date keys that drive the Date sort so we can see whether
       // any items have null `fileModifiedAt` (= the historical bug surface).
       final firstDates = displayVideos
@@ -481,8 +643,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
                     ),
                   );
                 },
-                onMore: () =>
-                    _openVideoActions(context, displayVideos[index]),
+                onMore: () => _openVideoActions(displayVideos[index]),
               ),
               childCount: displayVideos.length,
             ),
@@ -511,7 +672,7 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
                     ),
                   );
                 },
-                onMore: () => _openVideoActions(context, v),
+                onMore: () => _openVideoActions(v),
               );
             },
             childCount: displayVideos.length,
@@ -523,22 +684,23 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
 
   // ── 3-dot action sheet ────────────────────────────────────────────────────
   //
-  // The "Lock in Private Folder", "Convert to MP3" and "Add to playlist"
-  // actions land on snackbars for now because they need bigger plumbing
-  // (PIN dialog + vault import / FFmpeg pipeline / video-playlist data model).
-  // The first three are intentionally stubbed so the sheet UX is complete and
-  // each action is wired to its eventual home.
-  void _openVideoActions(BuildContext context, VideoEntity video) {
+  // The unsupported actions remain stubbed in this pass; Rename is wired to a
+  // real backend flow below because it is explicitly in scope.
+  void _openVideoActions(VideoEntity video) {
+    if (!mounted) return;
+
+    final screenContext = context;
     VideoActionsSheet.show(
-      context,
+      screenContext,
       video: video,
-      onLockVault: () => _showComingSoon(context, 'Lock in Private Folder'),
-      onConvertMp3: () => _showComingSoon(context, 'Convert to MP3'),
-      onAddToPlaylist: () => _showComingSoon(context, 'Add to playlist'),
-      onDelete: () => _handleDelete(context, video),
-      onShare: () => _handleShare(context, video),
-      onRename: () => _showComingSoon(context, 'Rename'),
-      onProperties: () => _showPropertiesDialog(context, video),
+      onLockVault: () =>
+          _showComingSoon(screenContext, 'Lock in Private Folder'),
+      onConvertMp3: () => _showComingSoon(screenContext, 'Convert to MP3'),
+      onAddToPlaylist: () => _showComingSoon(screenContext, 'Add to playlist'),
+      onDelete: () => _handleDelete(screenContext, video),
+      onShare: () => _handleShare(screenContext, video),
+      onRename: () => _handleRename(video),
+      onProperties: () => _showPropertiesDialog(screenContext, video),
     );
   }
 
@@ -627,9 +789,35 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
     );
   }
 
+  Future<void> _handleRename(VideoEntity video) async {
+    if (!mounted) return;
+
+    final newBaseName = await _showRenameDialog(video);
+    if (newBaseName == null) return;
+
+    final result = await ref.read(videoLibraryProvider.notifier).renameVideo(
+          filePath: video.filePath,
+          newName: newBaseName,
+        );
+
+    if (!mounted) return;
+
+    result.fold(
+      (failure) => _showMessage(failure.message),
+      (updatedVideo) {
+        ref.read(videoPlayerProvider.notifier).replaceVideoReferences(
+              originalPath: video.filePath,
+              updatedVideo: _videoFileFromEntity(updatedVideo),
+            );
+        _showMessage('Renamed to "${_videoFileName(updatedVideo.filePath)}"');
+      },
+    );
+  }
+
   void _showPropertiesDialog(BuildContext context, VideoEntity video) {
     final modified = video.fileModifiedAt;
-    final resolution = (video.resolution ?? '').isEmpty ? '—' : video.resolution!;
+    final resolution =
+        (video.resolution ?? '').isEmpty ? '—' : video.resolution!;
     final duration = video.formattedDuration;
     final size = video.formattedSize;
     final modifiedLabel = modified == null
@@ -673,6 +861,99 @@ class _VideoLibraryScreenState extends ConsumerState<VideoLibraryScreen> {
   }
 }
 
+class _RenameVideoDialog extends StatefulWidget {
+  final String initialName;
+  final String extension;
+  final Future<String?> Function(String rawName) validateName;
+  final String Function(String rawName) normalizeName;
+
+  const _RenameVideoDialog({
+    required this.initialName,
+    required this.extension,
+    required this.validateName,
+    required this.normalizeName,
+  });
+
+  @override
+  State<_RenameVideoDialog> createState() => _RenameVideoDialogState();
+}
+
+class _RenameVideoDialogState extends State<_RenameVideoDialog> {
+  late final TextEditingController _controller;
+  String _errorText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+    _controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _controller.text.length,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitRename() async {
+    final validationMessage = await widget.validateName(_controller.text);
+    if (!mounted) return;
+    if (validationMessage != null) {
+      setState(() {
+        _errorText = validationMessage;
+      });
+      return;
+    }
+
+    Navigator.of(context).pop(widget.normalizeName(_controller.text));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: AlertDialog(
+        title: const Text('Rename video'),
+        content: TextField(
+          controller: _controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onChanged: (_) {
+            if (_errorText.isEmpty) return;
+            setState(() {
+              _errorText = '';
+            });
+          },
+          onSubmitted: (_) async {
+            await _submitRename();
+          },
+          decoration: InputDecoration(
+            labelText: 'Name',
+            suffixText: widget.extension.isEmpty ? null : widget.extension,
+            helperText: widget.extension.isEmpty
+                ? 'The video will stay in the same folder.'
+                : 'The ${widget.extension} extension will be kept automatically.',
+            errorText: _errorText.isEmpty ? null : _errorText,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: _submitRename,
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PropertyRow extends StatelessWidget {
   final String label;
   final String value;
@@ -700,6 +981,23 @@ class _PropertyRow extends StatelessWidget {
             style: TextStyle(color: cs.onSurface, fontSize: 13),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LtrPopupMenuItemContent extends StatelessWidget {
+  final Widget child;
+
+  const _LtrPopupMenuItemContent({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: child,
       ),
     );
   }
@@ -760,11 +1058,15 @@ class _TopRightControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final cs = Theme.of(context).colorScheme;
+    final controlIconColor = theme.brightness == Brightness.dark
+        ? cs.onSurfaceVariant
+        : cs.onSurface;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
+        color: theme.brightness == Brightness.dark
             ? Colors.black.withValues(alpha: 0.15)
             : cs.surface,
       ),
@@ -794,14 +1096,14 @@ class _TopRightControls extends StatelessWidget {
           const Spacer(),
           IconButton(
             visualDensity: VisualDensity.compact,
-            icon: CustomSortArrowsIcon(color: cs.onSurfaceVariant, size: 24),
+            icon: CustomSortArrowsIcon(color: controlIconColor, size: 24),
             onPressed: onSort,
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: Icon(
-              isGridView ? Icons.view_list : Icons.grid_view,
-              color: cs.onSurfaceVariant,
+              isGridView ? Symbols.view_list : Symbols.grid_view,
+              color: controlIconColor,
             ),
             onPressed: onToggleView,
           ),
@@ -840,8 +1142,14 @@ extension on _VideoLibraryScreenState {
     List<String> directionLabels(VideoSortOrder o) => switch (o) {
           VideoSortOrder.name => const ['From A to Z', 'From Z to A'],
           VideoSortOrder.date => const ['From new to old', 'From old to new'],
-          VideoSortOrder.size => const ['From big to small', 'From small to big'],
-          VideoSortOrder.duration => const ['From long to short', 'From short to long'],
+          VideoSortOrder.size => const [
+              'From big to small',
+              'From small to big'
+            ],
+          VideoSortOrder.duration => const [
+              'From long to short',
+              'From short to long'
+            ],
         };
 
     // In XPlayer UI: first option is DESC for date/size/length, ASC for name.
@@ -860,46 +1168,82 @@ extension on _VideoLibraryScreenState {
         return Directionality(
           textDirection: TextDirection.ltr,
           child: AlertDialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             title: const Align(
               alignment: Alignment.centerLeft,
               child: Text('Sort by', textAlign: TextAlign.left),
             ),
             content: StatefulBuilder(
               builder: (context, setState) {
-              final dir = directionLabels(order);
-              final first = dir[0];
-              final second = dir[1];
-              final firstAsc = firstOptionMeansAscending(order);
-              return SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    RadioGroup<VideoSortOrder>(
-                      groupValue: order,
-                      onChanged: (x) {
-                        if (x == null) return;
-                        setState(() => order = x);
-                        // Default direction like XPlayer: choose the first option by default.
-                        setState(() => asc = firstOptionMeansAscending(x));
-                      },
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ...VideoSortOrder.values.map(
-                            (v) => RadioListTile<VideoSortOrder>(
-                              value: v,
+                final dir = directionLabels(order);
+                final first = dir[0];
+                final second = dir[1];
+                final firstAsc = firstOptionMeansAscending(order);
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RadioGroup<VideoSortOrder>(
+                        groupValue: order,
+                        onChanged: (x) {
+                          if (x == null) return;
+                          setState(() => order = x);
+                          // Default direction like XPlayer: choose the first option by default.
+                          setState(() => asc = firstOptionMeansAscending(x));
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ...VideoSortOrder.values.map(
+                              (v) => RadioListTile<VideoSortOrder>(
+                                value: v,
+                                activeColor: Colors.green,
+                                dense: true,
+                                visualDensity: const VisualDensity(
+                                    horizontal: -4, vertical: -4),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(horizontal: 0),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                title: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    orderLabel(v),
+                                    textAlign: TextAlign.left,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: false,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(),
+                      RadioGroup<bool>(
+                        groupValue: asc == firstAsc,
+                        onChanged: (x) {
+                          if (x == null) return;
+                          setState(() => asc = x ? firstAsc : !firstAsc);
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            RadioListTile<bool>(
+                              value: true, // first option
                               activeColor: Colors.green,
                               dense: true,
-                              visualDensity:
-                                  const VisualDensity(horizontal: -4, vertical: -4),
+                              visualDensity: const VisualDensity(
+                                  horizontal: -4, vertical: -4),
                               contentPadding:
                                   const EdgeInsets.symmetric(horizontal: 0),
                               controlAffinity: ListTileControlAffinity.leading,
                               title: Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  orderLabel(v),
+                                  first,
                                   textAlign: TextAlign.left,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -907,68 +1251,34 @@ extension on _VideoLibraryScreenState {
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(),
-                    RadioGroup<bool>(
-                      groupValue: asc == firstAsc,
-                      onChanged: (x) {
-                        if (x == null) return;
-                        setState(() => asc = x ? firstAsc : !firstAsc);
-                      },
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          RadioListTile<bool>(
-                            value: true, // first option
-                            activeColor: Colors.green,
-                            dense: true,
-                            visualDensity:
-                                const VisualDensity(horizontal: -4, vertical: -4),
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 0),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            title: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                first,
-                                textAlign: TextAlign.left,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
+                            RadioListTile<bool>(
+                              value: false, // second option
+                              activeColor: Colors.green,
+                              dense: true,
+                              visualDensity: const VisualDensity(
+                                  horizontal: -4, vertical: -4),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 0),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  second,
+                                  textAlign: TextAlign.left,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: false,
+                                ),
                               ),
                             ),
-                          ),
-                          RadioListTile<bool>(
-                            value: false, // second option
-                            activeColor: Colors.green,
-                            dense: true,
-                            visualDensity:
-                                const VisualDensity(horizontal: -4, vertical: -4),
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 0),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            title: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                second,
-                                textAlign: TextAlign.left,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                              ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+                    ],
+                  ),
+                );
+              },
+            ),
             actionsAlignment: MainAxisAlignment.end,
             actions: [
               TextButton(
@@ -1050,7 +1360,8 @@ class _XPlayerListRow extends ConsumerWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10),
+                      style:
+                          TextStyle(color: cs.onSurfaceVariant, fontSize: 10),
                     ),
                   ],
                 ),
@@ -1065,7 +1376,7 @@ class _XPlayerListRow extends ConsumerWidget {
                     constraints:
                         const BoxConstraints(minWidth: 32, minHeight: 32),
                     icon: Icon(
-                      Icons.more_vert,
+                      Symbols.more_vert,
                       color: cs.onSurfaceVariant,
                       size: 22,
                     ),
@@ -1077,7 +1388,8 @@ class _XPlayerListRow extends ConsumerWidget {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         date,
-                        style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10),
+                        style:
+                            TextStyle(color: cs.onSurfaceVariant, fontSize: 10),
                       ),
                     )
                   else
@@ -1205,7 +1517,10 @@ class _ThumbWithDurationState extends State<_ThumbWithDuration> {
               ),
               child: Text(
                 widget.video.formattedDuration,
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -1227,6 +1542,7 @@ class _ThumbWithDurationState extends State<_ThumbWithDuration> {
   }
 
   Widget _ph(ColorScheme cs) => Center(
-        child: Icon(Icons.ondemand_video, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+        child: Icon(Symbols.ondemand_video,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
       );
 }

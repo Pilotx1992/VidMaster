@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
 import 'player_control_helpers.dart';
 
 /// Centered playback row: optional `Previous` · `Replay 10` · `Play/Pause` ·
@@ -80,7 +81,7 @@ class PlayerTransportControls extends StatelessWidget {
               overlayColor: Colors.white.withValues(alpha: 0.12),
               disabledForegroundColor: Colors.white.withValues(alpha: 0.25),
             ),
-            icon: const Icon(Icons.skip_previous_rounded),
+            icon: const Icon(Symbols.skip_previous_rounded),
             onPressed: onPrevious,
           ),
         if (showReplay10)
@@ -93,7 +94,7 @@ class PlayerTransportControls extends StatelessWidget {
               foregroundColor: Colors.white,
               overlayColor: Colors.white.withValues(alpha: 0.12),
             ),
-            icon: const Icon(Icons.replay_10_rounded),
+            icon: const Icon(Symbols.replay_10_rounded),
             onPressed: onReplay10,
           ),
         IconButton(
@@ -106,7 +107,7 @@ class PlayerTransportControls extends StatelessWidget {
             overlayColor: kPlayerAccent.withValues(alpha: 0.2),
           ),
           icon: Icon(
-            isPlaying ? Icons.pause_circle_rounded : Icons.play_circle_rounded,
+            isPlaying ? Symbols.pause_circle_rounded : Symbols.play_circle_rounded,
           ),
           onPressed: onPlayPause,
         ),
@@ -120,7 +121,7 @@ class PlayerTransportControls extends StatelessWidget {
               foregroundColor: Colors.white,
               overlayColor: Colors.white.withValues(alpha: 0.12),
             ),
-            icon: const Icon(Icons.forward_10_rounded),
+            icon: const Icon(Symbols.forward_10_rounded),
             onPressed: onForward10,
           ),
         if (showNext)
@@ -134,7 +135,7 @@ class PlayerTransportControls extends StatelessWidget {
               overlayColor: Colors.white.withValues(alpha: 0.12),
               disabledForegroundColor: Colors.white.withValues(alpha: 0.25),
             ),
-            icon: const Icon(Icons.skip_next_rounded),
+            icon: const Icon(Symbols.skip_next_rounded),
             onPressed: onNext,
           ),
       ],
@@ -176,7 +177,7 @@ class PlayerTransportControls extends StatelessWidget {
                       foregroundColor: Colors.white,
                       overlayColor: Colors.white.withValues(alpha: 0.12),
                     ),
-                    icon: const Icon(Icons.lock_outline_rounded),
+                    icon: const Icon(Symbols.lock_outline_rounded),
                     onPressed: lockCallback,
                   ),
                 ),
@@ -196,7 +197,7 @@ class PlayerTransportControls extends StatelessWidget {
                       foregroundColor: Colors.white,
                       overlayColor: Colors.white.withValues(alpha: 0.12),
                     ),
-                    icon: const Icon(Icons.fit_screen_rounded),
+                    icon: const Icon(Symbols.fit_screen_rounded),
                     onPressed: aspectCallback,
                   ),
                 ),

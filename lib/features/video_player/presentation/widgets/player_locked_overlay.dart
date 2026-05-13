@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
 /// Full-screen overlay shown while the player is in lock mode.
 ///
 /// Behaviour:
@@ -92,7 +93,7 @@ class _PlayerLockedOverlayState extends State<PlayerLockedOverlay> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock_rounded, color: Colors.white, size: 22),
+                    Icon(Symbols.lock_rounded, color: Colors.white, size: 22),
                     SizedBox(width: 10),
                     Text(
                       'Locked',
@@ -130,7 +131,7 @@ class _PlayerLockedOverlayState extends State<PlayerLockedOverlay> {
                     onPressed: widget.onUnlock,
                     backgroundColor: Colors.white.withValues(alpha: 0.16),
                     foregroundColor: Colors.white,
-                    child: const Icon(Icons.lock_open_rounded),
+                    child: const Icon(Symbols.lock_open_rounded),
                   ),
                 ),
               ),

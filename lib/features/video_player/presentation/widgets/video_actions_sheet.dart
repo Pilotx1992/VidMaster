@@ -1,35 +1,37 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/entities/video_entity.dart';
 
+enum _VideoAction {
+  lockVault,
+  convertMp3,
+  addToPlaylist,
+  delete,
+  share,
+  rename,
+  properties,
+}
+
 /// Bottom sheet that mirrors the "long-press / 3-dot" actions panel from the
-/// reference screenshot. Owners pass the [video] and the per-action handlers;
-/// the sheet stays purely presentational so it can be reused from list view,
-/// grid view, or anywhere else a single-video action set is needed.
+/// reference screenshot. Owners pass the [video] and per-action handlers to
+/// [show]; this widget only renders the available choices and returns the
+/// selected action.
 ///
-/// Each tile closes the sheet BEFORE invoking the callback so dialogs /
-/// snackbars launched by the action have a clean route stack.
+/// Action callbacks run from [show] after the sheet route has completed and a
+/// new frame is scheduled, so dialogs and snackbars use the caller's context
+/// instead of a bottom-sheet context.
 class VideoActionsSheet extends StatelessWidget {
   final VideoEntity video;
-  final VoidCallback onLockVault;
-  final VoidCallback onConvertMp3;
-  final VoidCallback onAddToPlaylist;
-  final VoidCallback onDelete;
-  final VoidCallback onShare;
-  final VoidCallback onRename;
-  final VoidCallback onProperties;
 
   const VideoActionsSheet({
     super.key,
     required this.video,
-    required this.onLockVault,
-    required this.onConvertMp3,
-    required this.onAddToPlaylist,
-    required this.onDelete,
-    required this.onShare,
-    required this.onRename,
-    required this.onProperties,
   });
+
+  void _selectAction(BuildContext sheetContext, _VideoAction action) {
+    Navigator.of(sheetContext).pop(action);
+  }
 
   /// Convenience launcher so callers don't repeat `showModalBottomSheet`
   /// boilerplate. Returns a future that completes when the sheet is dismissed.
@@ -49,9 +51,9 @@ class VideoActionsSheet extends StatelessWidget {
     required VoidCallback onShare,
     required VoidCallback onRename,
     required VoidCallback onProperties,
-  }) {
+  }) async {
     final screen = MediaQuery.sizeOf(context);
-    return showModalBottomSheet<void>(
+    final selectedAction = await showModalBottomSheet<_VideoAction>(
       context: context,
       // `isScrollControlled: true` lifts the default 9/16 height cap and lets
       // the sheet grow tall enough for all 7 actions + header. The explicit
@@ -67,17 +69,30 @@ class VideoActionsSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => VideoActionsSheet(
-        video: video,
-        onLockVault: onLockVault,
-        onConvertMp3: onConvertMp3,
-        onAddToPlaylist: onAddToPlaylist,
-        onDelete: onDelete,
-        onShare: onShare,
-        onRename: onRename,
-        onProperties: onProperties,
+      builder: (_) => Directionality(
+        textDirection: TextDirection.ltr,
+        child: VideoActionsSheet(
+          video: video,
+        ),
       ),
     );
+
+    if (selectedAction == null || !context.mounted) return;
+
+    final callback = switch (selectedAction) {
+      _VideoAction.lockVault => onLockVault,
+      _VideoAction.convertMp3 => onConvertMp3,
+      _VideoAction.addToPlaylist => onAddToPlaylist,
+      _VideoAction.delete => onDelete,
+      _VideoAction.share => onShare,
+      _VideoAction.rename => onRename,
+      _VideoAction.properties => onProperties,
+    };
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      callback();
+    });
   }
 
   @override
@@ -95,91 +110,70 @@ class VideoActionsSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          // Grab handle
-          Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurface.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(2),
+            // Grab handle
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
             ),
-          ),
-          // File name header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-            child: Text(
-              video.fileName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: cs.onSurface.withValues(alpha: 0.55),
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
+            // File name header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: Text(
+                video.fileName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ),
-          ),
-          Divider(height: 1, color: cs.outline.withValues(alpha: 0.18)),
-          _ActionTile(
-            icon: Icons.lock_outline,
-            label: 'Lock in Private Folder',
-            onTap: () {
-              Navigator.of(context).pop();
-              onLockVault();
-            },
-          ),
-          _ActionTile(
-            icon: Icons.music_note_outlined,
-            label: 'Convert to MP3',
-            onTap: () {
-              Navigator.of(context).pop();
-              onConvertMp3();
-            },
-          ),
-          _ActionTile(
-            icon: Icons.playlist_add_outlined,
-            label: 'Add to playlist',
-            onTap: () {
-              Navigator.of(context).pop();
-              onAddToPlaylist();
-            },
-          ),
-          _ActionTile(
-            icon: Icons.delete_outline,
-            label: 'Delete',
-            onTap: () {
-              Navigator.of(context).pop();
-              onDelete();
-            },
-          ),
-          _ActionTile(
-            icon: Icons.share_outlined,
-            label: 'Share',
-            onTap: () {
-              Navigator.of(context).pop();
-              onShare();
-            },
-          ),
-          _ActionTile(
-            icon: Icons.edit_outlined,
-            label: 'Rename',
-            onTap: () {
-              Navigator.of(context).pop();
-              onRename();
-            },
-          ),
-          _ActionTile(
-            icon: Icons.info_outline,
-            label: 'Properties',
-            onTap: () {
-              Navigator.of(context).pop();
-              onProperties();
-            },
-          ),
+            Divider(height: 1, color: cs.outline.withValues(alpha: 0.18)),
+            _ActionTile(
+              icon: Symbols.lock_outline,
+              label: 'Lock in Private Folder',
+              onTap: () => _selectAction(context, _VideoAction.lockVault),
+            ),
+            _ActionTile(
+              icon: Symbols.music_note,
+              label: 'Convert to MP3',
+              onTap: () => _selectAction(context, _VideoAction.convertMp3),
+            ),
+            _ActionTile(
+              icon: Symbols.playlist_add,
+              label: 'Add to playlist',
+              onTap: () => _selectAction(context, _VideoAction.addToPlaylist),
+            ),
+            _ActionTile(
+              icon: Symbols.delete_outline,
+              label: 'Delete',
+              onTap: () => _selectAction(context, _VideoAction.delete),
+            ),
+            _ActionTile(
+              icon: Symbols.share,
+              label: 'Share',
+              onTap: () => _selectAction(context, _VideoAction.share),
+            ),
+            _ActionTile(
+              icon: Symbols.edit,
+              label: 'Rename',
+              onTap: () => _selectAction(context, _VideoAction.rename),
+            ),
+            _ActionTile(
+              icon: Symbols.info,
+              label: 'Properties',
+              onTap: () => _selectAction(context, _VideoAction.properties),
+            ),
             const SizedBox(height: 8),
           ],
         ),

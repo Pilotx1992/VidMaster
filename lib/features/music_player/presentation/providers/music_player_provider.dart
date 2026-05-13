@@ -314,6 +314,130 @@ class MusicPlayerNotifier extends StateNotifier<MusicPlayerState> {
     await src?.add(_createAudioSource(track.filePath));
   }
 
+  Future<void> playNext(AudioTrackEntity track) async {
+    if (state.queue.isEmpty || state.currentTrack == null) {
+      await playTrack(track);
+      return;
+    }
+
+    final source = _player.audioSource as ConcatenatingAudioSource?;
+    final currentIndex = state.currentIndex.clamp(0, state.queue.length - 1);
+    final updatedQueue = [...state.queue];
+    final existingIndex =
+        updatedQueue.indexWhere((t) => t.filePath == track.filePath);
+
+    var insertIndex = currentIndex + 1;
+
+    if (existingIndex >= 0) {
+      final existingTrack = updatedQueue.removeAt(existingIndex);
+      if (existingIndex < insertIndex) {
+        insertIndex -= 1;
+      }
+      updatedQueue.insert(insertIndex, existingTrack);
+      if (source == null) {
+        await playQueue(updatedQueue, startIndex: currentIndex);
+        return;
+      }
+      state = state.copyWith(queue: updatedQueue);
+      await source.move(existingIndex, insertIndex);
+      return;
+    }
+
+    updatedQueue.insert(insertIndex, track);
+    if (source == null) {
+      await playQueue(updatedQueue, startIndex: currentIndex);
+      return;
+    }
+    state = state.copyWith(queue: updatedQueue);
+    await source.insert(insertIndex, _createAudioSource(track.filePath));
+  }
+
+  void refreshTrackMetadata(
+    AudioTrackEntity updatedTrack, {
+    String? originalFilePath,
+  }) {
+    final matchPath = originalFilePath ?? updatedTrack.filePath;
+    final updatedQueue = state.queue
+        .map((track) => track.filePath == matchPath ? updatedTrack : track)
+        .toList(growable: false);
+    final updatedCurrentTrack = state.currentTrack?.filePath == matchPath
+        ? updatedTrack
+        : state.currentTrack;
+
+    state = state.copyWith(
+      queue: updatedQueue,
+      currentTrack: updatedCurrentTrack,
+    );
+
+    if (updatedCurrentTrack != null &&
+        updatedCurrentTrack.filePath == updatedTrack.filePath) {
+      _updateMediaItem(updatedTrack);
+    }
+  }
+
+  Future<void> replaceTrackReferences(
+    AudioTrackEntity updatedTrack, {
+    required String originalFilePath,
+  }) async {
+    final hasMatchingQueueEntry = state.queue.any(
+      (track) => track.filePath == originalFilePath,
+    );
+    final updatedQueue = state.queue
+        .map((track) => track.filePath == originalFilePath ? updatedTrack : track)
+        .toList(growable: false);
+    final updatedCurrentTrack = state.currentTrack?.filePath == originalFilePath
+        ? updatedTrack
+        : state.currentTrack;
+
+    state = state.copyWith(
+      queue: updatedQueue,
+      currentTrack: updatedCurrentTrack,
+    );
+
+    if (updatedCurrentTrack != null &&
+        updatedCurrentTrack.filePath == updatedTrack.filePath) {
+      _updateMediaItem(updatedTrack);
+    }
+
+    if (!hasMatchingQueueEntry || updatedQueue.isEmpty) {
+      return;
+    }
+
+    final resumePlayback = state.isPlaying;
+    final restoreIndex = state.currentIndex.clamp(0, updatedQueue.length - 1);
+    final restorePosition = state.position;
+
+    _suppressIndexUpdates = true;
+    try {
+      if (resumePlayback) {
+        await _player.pause();
+      }
+
+      await _player.setAudioSource(
+        ConcatenatingAudioSource(
+          children: updatedQueue
+              .map((track) => _createAudioSource(track.filePath))
+              .toList(growable: false),
+        ),
+        initialIndex: restoreIndex,
+        initialPosition: restorePosition,
+      );
+
+      if (resumePlayback) {
+        _pauseVideoIfPlaying();
+        await _player.play();
+      }
+    } catch (error) {
+      state = state.copyWith(
+        errorMessage: 'Could not refresh the renamed track in the queue.',
+      );
+    } finally {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _suppressIndexUpdates = false;
+      });
+    }
+  }
+
   /// Safely creates an AudioSource from a file path, handling platform-specific URI issues.
   AudioSource _createAudioSource(String path) {
     return AudioSource.uri(_safeFileUri(path));

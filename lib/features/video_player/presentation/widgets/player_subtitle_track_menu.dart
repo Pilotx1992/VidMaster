@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../../domain/entities/video_playback_state.dart';
@@ -27,7 +28,7 @@ class PlayerSubtitleTrackMenu extends StatelessWidget {
       tooltip: 'Subtitle tracks',
       onSelected: notifier.setSubtitleTrack,
       icon: menuChild == null
-          ? const Icon(Icons.closed_caption, color: Colors.white)
+          ? const Icon(Symbols.closed_caption, color: Colors.white)
           : null,
       itemBuilder: (context) => [
         if (state.availableSubtitleTracks.isEmpty)

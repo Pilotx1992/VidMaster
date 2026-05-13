@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
 /// Compact top bar: back, title, up to a few [actions] (e.g. CC + More).
 class PlayerTopBar extends StatelessWidget {
   final String title;
@@ -38,7 +39,7 @@ class PlayerTopBar extends StatelessWidget {
                 IconButton(
                   tooltip: 'Back',
                   visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  icon: const Icon(Symbols.arrow_back, color: Colors.white),
                   onPressed: onBack,
                 ),
                 Expanded(
@@ -53,7 +54,11 @@ class PlayerTopBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                ...actions,
+                if (actions.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: actions,
+                  ),
               ],
             ),
           ),

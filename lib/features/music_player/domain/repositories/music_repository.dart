@@ -16,6 +16,15 @@ abstract interface class MusicRepository {
   Future<Either<Failure, List<AudioTrackEntity>>> searchTracks(String query);
   Future<Either<Failure, List<String>>> getAllAlbums();
   Future<Either<Failure, List<String>>> getAllArtists();
+  Future<Either<Failure, AudioTrackEntity>> renameTrack({
+    required String filePath,
+    required String newName,
+  });
+  Future<Either<Failure, AudioTrackEntity>> updateTrackCover({
+    required String filePath,
+    required String coverArtPath,
+  });
+  Future<Either<Failure, void>> deleteTrack(String filePath);
 
   // ─── Playback State ────────────────────────────────────────────────────
 

@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 
 class AppTheme {
   // Premium dark surfaces + gold accent (system font)
-  static const Color primaryColor = Color(0xFF111827); // near-black (header/bg anchor)
+  static const Color primaryColor =
+      Color(0xFF111827); // near-black (header/bg anchor)
   static const Color secondaryColor = Color(0xFFF9A825); // Amber Gold (accent)
   static const Color backgroundDark = Color(0xFF0B0F14);
   static const Color surfaceDark = Color(0xFF111827);
@@ -56,6 +57,10 @@ class AppTheme {
             ),
           ),
         ),
+        inputDecorationTheme: InputDecorationTheme(
+          hintStyle: const TextStyle(color: Colors.black54),
+          labelStyle: const TextStyle(color: Colors.black87),
+        ),
       );
 
   static ThemeData get darkTheme => ThemeData(
@@ -90,12 +95,14 @@ class AppTheme {
             statusBarBrightness: Brightness.dark,
           ),
         ),
-        dividerTheme: const DividerThemeData(color: outlineDark, thickness: 1, space: 1),
+        dividerTheme:
+            const DividerThemeData(color: outlineDark, thickness: 1, space: 1),
         iconTheme: const IconThemeData(color: Colors.white70),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: surfaceDark2,
-          hintStyle: const TextStyle(color: Colors.white38),
+          hintStyle: const TextStyle(color: Colors.white70),
+          labelStyle: const TextStyle(color: Colors.white70),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: outlineDark),
@@ -130,7 +137,8 @@ class AppTheme {
         navigationBarTheme: const NavigationBarThemeData(
           backgroundColor: backgroundDark,
           indicatorColor: Color(0x26F9A825),
-          labelTextStyle: WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.w600)),
+          labelTextStyle:
+              WidgetStatePropertyAll(TextStyle(fontWeight: FontWeight.w600)),
         ),
         tabBarTheme: const TabBarThemeData(
           indicatorColor: secondaryColor,

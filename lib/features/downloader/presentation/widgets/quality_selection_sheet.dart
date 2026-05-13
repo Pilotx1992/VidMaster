@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/extraction_result.dart';
@@ -121,7 +122,7 @@ class QualitySelectionSheet extends ConsumerWidget {
             const SizedBox(height: 8),
             ...result.audioFormats.map((f) => ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.music_note,
+                  leading: Icon(Symbols.music_note,
                       color: Theme.of(context).colorScheme.secondary),
                   title: Text(f.note,
                       style: const TextStyle(fontWeight: FontWeight.w500)),

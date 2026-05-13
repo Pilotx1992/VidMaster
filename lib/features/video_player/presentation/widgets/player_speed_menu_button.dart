@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
 import '../providers/video_player_notifier.dart';
 import 'player_control_helpers.dart';
 
@@ -30,7 +31,7 @@ class PlayerSpeedMenuButton extends StatelessWidget {
                 SizedBox(
                   width: 24,
                   child: s == speed
-                      ? const Icon(Icons.check, size: 18, color: Colors.white)
+                      ? const Icon(Symbols.check, size: 18, color: Colors.white)
                       : const SizedBox.shrink(),
                 ),
                 Text(formatSpeedLabel(s).toLowerCase()),

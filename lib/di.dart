@@ -299,6 +299,8 @@ final clearRecentlyPlayedVideosProvider =
     Provider((ref) => ClearRecentlyPlayed(ref.watch(videoRepositoryProvider)));
 final deleteVideoUseCaseProvider =
     Provider((ref) => DeleteVideo(ref.watch(videoRepositoryProvider)));
+final renameVideoUseCaseProvider =
+    Provider((ref) => RenameVideo(ref.watch(videoRepositoryProvider)));
 
 // ── Music Use Cases ────────────────────────────────────────────────────────
 

@@ -147,6 +147,7 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
   final RecordVideoPlay _markAsPlayed;
   final ClearRecentlyPlayed _clearRecentlyPlayed;
   final DeleteVideo _deleteVideo;
+  final RenameVideo _renameVideo;
   final SavePlaybackPosition _savePosition;
   final GenerateThumbnail _generateThumbnail;
 
@@ -160,6 +161,7 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
     required RecordVideoPlay markAsPlayed,
     required ClearRecentlyPlayed clearRecentlyPlayed,
     required DeleteVideo deleteVideo,
+    required RenameVideo renameVideo,
     required SavePlaybackPosition savePosition,
     required GenerateThumbnail generateThumbnail,
   })  : _syncVideoLibrary = syncVideoLibrary,
@@ -171,6 +173,7 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
         _markAsPlayed = markAsPlayed,
         _clearRecentlyPlayed = clearRecentlyPlayed,
         _deleteVideo = deleteVideo,
+        _renameVideo = renameVideo,
         _savePosition = savePosition,
         _generateThumbnail = generateThumbnail,
         super(const VideoLibraryState());
@@ -345,7 +348,22 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
   /// instant the menu item is tapped; if the DB write fails the list will
   /// repopulate on the next library refresh.
   Future<void> clearRecent() async {
-    state = state.copyWith(recentlyPlayed: const []);
+    // Clear in-memory state for both the "Recent" tab and the "All" tab metadata.
+    // This provides immediate visual feedback across the entire app.
+    final updatedVideos = state.videos
+        .map((v) => v.copyWith(
+              lastPlayedAt: null,
+              lastPositionMs: null,
+              playCount: 0,
+            ))
+        .toList();
+
+    state = state.copyWith(
+      recentlyPlayed: const [],
+      videos: updatedVideos,
+    );
+
+    // Persist the wipe to the database.
     await _clearRecentlyPlayed(const NoParams());
   }
 
@@ -370,6 +388,38 @@ class VideoLibraryNotifier extends StateNotifier<VideoLibraryState> {
     return true;
   }
 
+  Future<Either<Failure, VideoEntity>> renameVideo({
+    required String filePath,
+    required String newName,
+  }) async {
+    final result = await _renameVideo(
+      RenameVideoParams(filePath: filePath, newName: newName),
+    );
+
+    result.fold((_) {}, (updatedVideo) {
+      bool match(VideoEntity v) => v.filePath == filePath;
+
+      final updatedVideos = state.videos
+          .map((video) => match(video) ? updatedVideo : video)
+          .toList(growable: false);
+      final updatedRecent = state.recentlyPlayed
+          .map((video) => match(video) ? updatedVideo : video)
+          .toList(growable: false);
+      final updatedFavorites = state.favorites
+          .map((video) => match(video) ? updatedVideo : video)
+          .toList(growable: false);
+
+      state = state.copyWith(
+        videos: updatedVideos,
+        totalBytes: updatedVideos.fold<int>(0, (sum, v) => sum + v.fileSizeBytes),
+        recentlyPlayed: updatedRecent,
+        favorites: updatedFavorites,
+      );
+    });
+
+    return result;
+  }
+
   Future<String?> getThumbnail(String videoPath) async {
     final result = await _generateThumbnail(GenerateThumbnailParams(videoPath: videoPath));
     return result.fold((l) => null, (r) => r);
@@ -390,6 +440,7 @@ final videoLibraryProvider =
     markAsPlayed: ref.watch(markVideoAsPlayedProvider),
     clearRecentlyPlayed: ref.watch(clearRecentlyPlayedVideosProvider),
     deleteVideo: ref.watch(deleteVideoUseCaseProvider),
+    renameVideo: ref.watch(renameVideoUseCaseProvider),
     savePosition: ref.watch(savePlaybackPositionProvider),
     generateThumbnail: ref.watch(generateThumbnailProvider),
   );

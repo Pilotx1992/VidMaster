@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 class ErrorStateWidget extends StatelessWidget {
   final String message;
@@ -18,7 +20,12 @@ class ErrorStateWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+            const HugeIcon(
+              icon: HugeIcons.strokeRoundedAlertCircle,
+              size: 64,
+              color: Colors.redAccent,
+              strokeWidth: 1.8,
+            ),
             const SizedBox(height: 16),
             Text(
               message,
@@ -26,9 +33,10 @@ class ErrorStateWidget extends StatelessWidget {
               style: const TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: onRetry,
-              child: const Text('Retry'),
+              icon: const Icon(Symbols.refresh_rounded, size: 18),
+              label: const Text('Retry'),
             ),
           ],
         ),

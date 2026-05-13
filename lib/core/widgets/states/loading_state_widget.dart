@@ -6,15 +6,20 @@ class SkeletonList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: itemCount,
+    return Padding(
       padding: const EdgeInsets.all(12),
-      itemBuilder: (context, index) => Container(
-        height: 100,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(
+          itemCount,
+          (index) => Container(
+            height: 100,
+            margin: EdgeInsets.only(bottom: index == itemCount - 1 ? 0 : 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
@@ -17,9 +18,41 @@ import '../models/video_model.dart';
 /// Uses [PhotoManager] (MediaStore API) to discover videos on the device,
 /// the same reliable mechanism that powers the Music library via `on_audio_query`.
 class VideoRepositoryImpl implements VideoRepository {
+  static const MethodChannel _storageChannel = MethodChannel('vidmaster/storage');
   final VideoLocalDataSource localDataSource;
 
   VideoRepositoryImpl({required this.localDataSource});
+
+  String _fileExtension(String path) {
+    final fileName = path.split(RegExp(r'[\\/]')).last;
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0 || dotIndex == fileName.length - 1) {
+      return '';
+    }
+    return fileName.substring(dotIndex);
+  }
+
+  Future<String?> _renameViaScopedStorage({
+    required String filePath,
+    required String newDisplayName,
+    required String fallbackTargetPath,
+  }) async {
+    if (!Platform.isAndroid) return null;
+
+    final result = await _storageChannel.invokeMapMethod<String, dynamic>(
+      'renameMediaFile',
+      <String, dynamic>{
+        'filePath': filePath,
+        'newDisplayName': newDisplayName,
+      },
+    );
+
+    if (result == null || result['handled'] != true) {
+      return null;
+    }
+
+    return result['path'] as String? ?? fallbackTargetPath;
+  }
 
   // ─── Library Sync ─────────────────────────────────────────────────────
 
@@ -303,6 +336,87 @@ class VideoRepositoryImpl implements VideoRepository {
       return const Right(null);
     } catch (e) {
       return Left(CacheFailure('Failed to delete video: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, VideoEntity>> renameVideo({
+    required String filePath,
+    required String newName,
+  }) async {
+    try {
+      final trimmedName = newName.trim();
+      if (trimmedName.isEmpty) {
+        return const Left(CacheFailure('Video name cannot be empty.'));
+      }
+
+      final model = await localDataSource.getVideoByPath(filePath);
+      if (model == null) {
+        return Left(FileNotFoundFailure(filePath));
+      }
+
+      final sourceFile = File(filePath);
+      if (!await sourceFile.exists()) {
+        return Left(FileNotFoundFailure(filePath));
+      }
+
+      final extension = _fileExtension(filePath);
+      final newDisplayName = '$trimmedName$extension';
+      final targetPath =
+          '${sourceFile.parent.path}${Platform.pathSeparator}$trimmedName$extension';
+
+      if (targetPath == filePath) {
+        return Right(_withDeviceDateFallback(model.toDomain()));
+      }
+
+      final targetFile = File(targetPath);
+      if (await targetFile.exists()) {
+        return const Left(
+          CacheFailure('A file with that name already exists.'),
+        );
+      }
+
+      final renamedPath = await _renameViaScopedStorage(
+            filePath: filePath,
+            newDisplayName: newDisplayName,
+            fallbackTargetPath: targetPath,
+          ) ??
+          (await sourceFile.rename(targetPath)).path;
+      final updatedModel = VideoModel(
+        filePath: renamedPath,
+        fileName: trimmedName,
+        folderName: model.folderName,
+        fileSizeBytes: model.fileSizeBytes,
+        thumbnailPath: model.thumbnailPath,
+        durationMs: model.durationMs,
+        lastPositionMs: model.lastPositionMs,
+        resolution: model.resolution,
+        lastPlayedAt: model.lastPlayedAt,
+        playCount: model.playCount,
+        isFavourite: model.isFavourite,
+        isInVault: model.isInVault,
+      );
+
+      await localDataSource.deleteVideoByPath(filePath);
+      await localDataSource.saveVideo(updatedModel);
+
+      return Right(_withDeviceDateFallback(updatedModel.toDomain()));
+    } on PlatformException catch (e, stackTrace) {
+      return Left(
+        FileSystemFailure(
+          'Failed to rename video: ${e.message ?? e.code}',
+          stackTrace: stackTrace,
+        ),
+      );
+    } on FileSystemException catch (e, stackTrace) {
+      return Left(
+        FileSystemFailure(
+          'Failed to rename video: ${e.message}',
+          stackTrace: stackTrace,
+        ),
+      );
+    } catch (e) {
+      return Left(CacheFailure('Failed to rename video: ${e.toString()}'));
     }
   }
 

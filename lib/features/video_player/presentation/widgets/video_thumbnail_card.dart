@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/video_entity.dart';
@@ -116,7 +117,7 @@ class VideoThumbnailCard extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: const Icon(
-                    Icons.more_vert,
+                    Symbols.more_vert,
                     color: Colors.white,
                     size: 16,
                   ),
@@ -240,7 +241,7 @@ class _ThumbnailImageState extends State<_ThumbnailImage> {
   Widget _placeholder() => Container(
         color: const Color(0xFF1C2B3A),
         child: const Center(
-          child: Icon(Icons.movie, color: Colors.white12, size: 36),
+          child: Icon(Symbols.movie, color: Colors.white12, size: 36),
         ),
       );
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/downloader_provider.dart';
 
@@ -33,7 +34,7 @@ class _DownloadHarnessScreenState extends ConsumerState<DownloadHarnessScreen> {
           IconButton(
             tooltip: 'Reload from storage',
             onPressed: notifier.loadDownloads,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Symbols.refresh),
           ),
         ],
       ),
@@ -138,7 +139,7 @@ class _DownloadHarnessScreenState extends ConsumerState<DownloadHarnessScreen> {
               trailing: IconButton(
                 tooltip: 'Delete record',
                 onPressed: () => notifier.deleteDownload(taskId: t.taskId, deleteFile: false),
-                icon: const Icon(Icons.delete_outline),
+                icon: const Icon(Symbols.delete_outline),
               ),
             ),
           ),

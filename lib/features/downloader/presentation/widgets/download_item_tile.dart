@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/entities/download_task_entity.dart';
 
 class DownloadItemTile extends StatelessWidget {
@@ -57,16 +58,16 @@ class DownloadItemTile extends StatelessWidget {
     Color color;
 
     if (task.isFinished) {
-      icon = Icons.check_circle;
+      icon = Symbols.check_circle;
       color = Colors.green;
     } else if (task.status == DownloadStatus.failed) {
-      icon = Icons.error;
+      icon = Symbols.error;
       color = theme.colorScheme.error;
     } else if (task.status == DownloadStatus.paused) {
-      icon = Icons.pause_circle_filled;
+      icon = Symbols.pause_circle_filled;
       color = theme.colorScheme.secondary;
     } else {
-      icon = Icons.downloading;
+      icon = Symbols.downloading;
       color = theme.colorScheme.primary;
     }
 
@@ -102,7 +103,7 @@ class DownloadItemTile extends StatelessWidget {
   Widget _buildTrailing(ThemeData theme) {
     if (task.isFinished) {
       return IconButton(
-        icon: const Icon(Icons.delete_outline),
+        icon: const Icon(Symbols.delete_outline),
         onPressed: onDelete,
       );
     }
@@ -111,8 +112,8 @@ class DownloadItemTile extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(icon: const Icon(Icons.pause), onPressed: onPause),
-          IconButton(icon: const Icon(Icons.close), onPressed: onCancel),
+          IconButton(icon: const Icon(Symbols.pause), onPressed: onPause),
+          IconButton(icon: const Icon(Symbols.close), onPressed: onCancel),
         ],
       );
     }
@@ -121,14 +122,14 @@ class DownloadItemTile extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(icon: const Icon(Icons.play_arrow), onPressed: onResume),
-          IconButton(icon: const Icon(Icons.close), onPressed: onCancel),
+          IconButton(icon: const Icon(Symbols.play_arrow), onPressed: onResume),
+          IconButton(icon: const Icon(Symbols.close), onPressed: onCancel),
         ],
       );
     }
 
     return IconButton(
-      icon: const Icon(Icons.close),
+      icon: const Icon(Symbols.close),
       onPressed: onCancel,
     );
   }

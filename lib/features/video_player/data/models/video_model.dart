@@ -4,10 +4,23 @@ import '../../domain/entities/video_entity.dart';
 
 part 'video_model.g.dart';
 
+int fastHash(String string) {
+  var hash = 0xcbf29ce484222325;
+  var i = 0;
+  while (i < string.length) {
+    final codeUnit = string.codeUnitAt(i++);
+    hash ^= codeUnit >> 8;
+    hash *= 0x100000001b3;
+    hash ^= codeUnit & 0xFF;
+    hash *= 0x100000001b3;
+  }
+  return hash;
+}
+
 /// Isar data model for locally cached video metadata.
 @collection
 class VideoModel {
-  Id get id => Isar.autoIncrement; // Will be set explicitly to filePath.hashCode
+  Id get id => fastHash(filePath);
   
   @Index(unique: true, replace: true)
   String filePath;

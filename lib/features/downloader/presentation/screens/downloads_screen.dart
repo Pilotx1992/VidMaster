@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
@@ -146,7 +147,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
       appBar: _isSelectionMode
           ? AppBar(
               leading: IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Symbols.close),
                 onPressed: () {
                   setState(() {
                     _selectedTasks.clear();
@@ -156,22 +157,22 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               title: Text('${_selectedTasks.length} Selected'),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.select_all),
+                  icon: const Icon(Symbols.select_all),
                   tooltip: 'Select All',
                   onPressed: () => _selectAll(state.tasks),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.pause),
+                  icon: const Icon(Symbols.pause),
                   tooltip: 'Pause Selected',
                   onPressed: _pauseSelected,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.play_arrow),
+                  icon: const Icon(Symbols.play_arrow),
                   tooltip: 'Resume Selected',
                   onPressed: _resumeSelected,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete),
+                  icon: const Icon(Symbols.delete),
                   tooltip: 'Delete Selected',
                   onPressed: _deleteSelected,
                 ),
@@ -181,7 +182,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               title: const Text('Downloads'),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.checklist),
+                  icon: const Icon(Symbols.checklist),
                   tooltip: 'Select Multiple',
                   onPressed: () {
                     if (state.tasks.isNotEmpty) {
@@ -192,7 +193,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add_link),
+                  icon: const Icon(Symbols.add_link),
                   tooltip: 'Add Download',
                   onPressed: _showAddDownloadDialog,
                 ),
@@ -207,7 +208,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
           ? null
           : FloatingActionButton.extended(
               onPressed: () => context.push(AppRoutes.videoBrowser),
-              icon: const Icon(Icons.travel_explore),
+              icon: const Icon(Symbols.travel_explore),
               label: const Text('Browser'),
               tooltip: 'Open Video Browser',
             ),
@@ -219,7 +220,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.download_done, size: 64, color: Theme.of(context).disabledColor),
+          Icon(Symbols.download_done, size: 64, color: Theme.of(context).disabledColor),
           const SizedBox(height: 16),
           Text(
             'No downloads yet',
@@ -284,21 +285,21 @@ class _DownloadTaskTile extends ConsumerWidget {
     IconData getStatusIcon() {
       switch (task.status) {
         case DownloadStatus.completed:
-          return Icons.check_circle;
+          return Symbols.check_circle;
         case DownloadStatus.failed:
-          return Icons.error;
+          return Symbols.error;
         case DownloadStatus.paused:
-          return Icons.pause_circle;
+          return Symbols.pause_circle;
         case DownloadStatus.cancelled:
-          return Icons.cancel;
+          return Symbols.cancel;
         case DownloadStatus.running:
-          return Icons.downloading;
+          return Symbols.downloading;
         case DownloadStatus.queued:
-          return Icons.access_time;
+          return Symbols.access_time;
         case DownloadStatus.extracting:
-          return Icons.search;
+          return Symbols.search;
         case DownloadStatus.merging:
-          return Icons.merge;
+          return Symbols.merge;
       }
     }
 
@@ -441,7 +442,7 @@ class _DownloadTaskTile extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.speed, size: 14),
+                        const Icon(Symbols.speed, size: 14),
                         const SizedBox(width: 4),
                         Text(
                           task.formattedSpeed,
@@ -452,7 +453,7 @@ class _DownloadTaskTile extends ConsumerWidget {
                     if (task.status == DownloadStatus.running)
                       Row(
                         children: [
-                          const Icon(Icons.timer_outlined, size: 14),
+                          const Icon(Symbols.timer, size: 14),
                           const SizedBox(width: 4),
                           Text(
                             getETA(),
@@ -479,7 +480,7 @@ class _DownloadTaskTile extends ConsumerWidget {
 
   Widget _buildActions(DownloaderNotifier notifier) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert),
+      icon: const Icon(Symbols.more_vert),
       onSelected: (value) {
         switch (value) {
           case 'pause':
@@ -504,7 +505,7 @@ class _DownloadTaskTile extends ConsumerWidget {
           const PopupMenuItem(
             value: 'pause',
             child: ListTile(
-              leading: Icon(Icons.pause),
+              leading: Icon(Symbols.pause),
               title: Text('Pause'),
               contentPadding: EdgeInsets.zero,
             ),
@@ -513,7 +514,7 @@ class _DownloadTaskTile extends ConsumerWidget {
           const PopupMenuItem(
             value: 'resume',
             child: ListTile(
-              leading: Icon(Icons.play_arrow),
+              leading: Icon(Symbols.play_arrow),
               title: Text('Resume'),
               contentPadding: EdgeInsets.zero,
             ),
@@ -522,7 +523,7 @@ class _DownloadTaskTile extends ConsumerWidget {
           const PopupMenuItem(
             value: 'retry',
             child: ListTile(
-              leading: Icon(Icons.refresh),
+              leading: Icon(Symbols.refresh),
               title: Text('Retry'),
               contentPadding: EdgeInsets.zero,
             ),
@@ -531,7 +532,7 @@ class _DownloadTaskTile extends ConsumerWidget {
           const PopupMenuItem(
             value: 'cancel',
             child: ListTile(
-              leading: Icon(Icons.cancel),
+              leading: Icon(Symbols.cancel),
               title: Text('Cancel'),
               contentPadding: EdgeInsets.zero,
             ),
@@ -539,7 +540,7 @@ class _DownloadTaskTile extends ConsumerWidget {
         const PopupMenuItem(
           value: 'delete',
           child: ListTile(
-            leading: Icon(Icons.delete_outline, color: Colors.red),
+            leading: Icon(Symbols.delete_outline, color: Colors.red),
             title: Text('Delete', style: TextStyle(color: Colors.red)),
             contentPadding: EdgeInsets.zero,
           ),

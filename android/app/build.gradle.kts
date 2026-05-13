@@ -161,6 +161,8 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     // Avoid R8 missing classes when building split APKs.
     implementation("com.google.android.play:core:1.10.3")
+    implementation("androidx.mediarouter:mediarouter:1.6.0-beta01")
+    implementation("com.google.android.gms:play-services-cast-framework:21.5.0")
 }
 
 flutter {

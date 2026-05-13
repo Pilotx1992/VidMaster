@@ -14,7 +14,9 @@ abstract interface class MusicLocalDataSource {
   Future<List<String>> getAllArtists();
 
   Future<AudioTrackModel?> getTrackById(String id);
+  Future<AudioTrackModel?> getTrackByFilePath(String filePath);
   Future<void> saveTrack(AudioTrackModel track);
+  Future<bool> deleteTrackByFilePath(String filePath);
 
   Future<List<AudioTrackModel>> getRecentlyPlayed({required int limit});
   Future<List<AudioTrackModel>> getMostPlayed({required int limit});
@@ -83,9 +85,21 @@ class MusicLocalDataSourceImpl implements MusicLocalDataSource {
   }
 
   @override
+  Future<AudioTrackModel?> getTrackByFilePath(String filePath) async {
+    return _box.getByFilePath(filePath);
+  }
+
+  @override
   Future<void> saveTrack(AudioTrackModel track) async {
     await _isar.writeTxn(() async {
       await _box.put(track);
+    });
+  }
+
+  @override
+  Future<bool> deleteTrackByFilePath(String filePath) async {
+    return _isar.writeTxn(() async {
+      return _box.deleteByFilePath(filePath);
     });
   }
 

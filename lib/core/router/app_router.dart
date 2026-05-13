@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:vidmaster/core/widgets/main_shell.dart';
@@ -194,7 +195,7 @@ class _ErrorScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const Icon(Symbols.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             Text(message, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 24),

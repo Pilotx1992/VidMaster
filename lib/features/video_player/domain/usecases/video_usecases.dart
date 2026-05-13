@@ -307,3 +307,27 @@ final class DeleteVideoParams {
   final String filePath;
   const DeleteVideoParams({required this.filePath});
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Renames a video file on device storage while preserving its extension.
+final class RenameVideo implements UseCase<VideoEntity, RenameVideoParams> {
+  final VideoRepository _repository;
+  const RenameVideo(this._repository);
+
+  @override
+  Future<Either<Failure, VideoEntity>> call(RenameVideoParams params) =>
+      _repository.renameVideo(
+        filePath: params.filePath,
+        newName: params.newName,
+      );
+}
+
+final class RenameVideoParams {
+  final String filePath;
+  final String newName;
+  const RenameVideoParams({
+    required this.filePath,
+    required this.newName,
+  });
+}

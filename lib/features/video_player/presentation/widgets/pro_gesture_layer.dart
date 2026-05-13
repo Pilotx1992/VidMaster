@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'gesture_engine.dart';
 
@@ -193,8 +194,8 @@ class _ProGestureLayerState extends State<ProGestureLayer> {
                 children: [
                   Icon(
                     _levelType == GestureType.volume
-                        ? Icons.volume_up
-                        : Icons.brightness_6,
+                        ? Symbols.volume_up
+                        : Symbols.brightness_6,
                     color: const Color(0xFFF9A825),
                     size: 34,
                   ),
@@ -246,8 +247,8 @@ class _ProGestureLayerState extends State<ProGestureLayer> {
                         children: [
                           Icon(
                             _doubleTapHintForward
-                                ? Icons.forward_10_rounded
-                                : Icons.replay_10_rounded,
+                                ? Symbols.forward_10_rounded
+                                : Symbols.replay_10_rounded,
                             color: Colors.white,
                             size: 36,
                           ),
@@ -287,7 +288,7 @@ class _ProGestureLayerState extends State<ProGestureLayer> {
   Widget _buildSeekIcon(Duration current, Duration start) {
     final isForward = current >= start;
     return Icon(
-      isForward ? Icons.fast_forward : Icons.fast_rewind,
+      isForward ? Symbols.fast_forward : Symbols.fast_rewind,
       color: isForward ? const Color(0xFFF9A825) : Colors.white,
       size: 42,
     );

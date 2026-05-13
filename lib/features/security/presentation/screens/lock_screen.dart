@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hugeicons/hugeicons.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../providers/auth_provider.dart';
@@ -64,8 +66,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.lock_outline,
-                    size: 64, color: Color(0xFF1565C0)),
+                const HugeIcon(
+                  icon: HugeIcons.strokeRoundedSquareLock02,
+                  size: 72,
+                  color: Color(0xFF1565C0),
+                  strokeWidth: 1.6,
+                ),
                 const SizedBox(height: 24),
                 const Text(
                   'VidMaster',
@@ -99,7 +105,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                     counterText: '',
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscure ? Icons.visibility_off : Icons.visibility,
+                        _obscure ? Symbols.visibility_off : Symbols.visibility,
                         color: Colors.white38,
                       ),
                       onPressed: () => setState(() => _obscure = !_obscure),
@@ -144,7 +150,12 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                 // Biometric retry
                 TextButton.icon(
                   onPressed: notifier.authenticateWithBiometric,
-                  icon: const Icon(Icons.fingerprint, color: Color(0xFFF9A825)),
+                  icon: const HugeIcon(
+                    icon: HugeIcons.strokeRoundedFingerAccess,
+                    size: 22,
+                    color: Color(0xFFF9A825),
+                    strokeWidth: 1.8,
+                  ),
                   label: const Text(
                     'Use biometrics',
                     style: TextStyle(color: Color(0xFFF9A825)),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
 /// Secondary actions kept out of the top bar: external subtitle + styling.
 class PlayerMoreMenu extends StatelessWidget {
   final VoidCallback onPickSubtitle;
@@ -15,7 +16,7 @@ class PlayerMoreMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       tooltip: 'More',
-      icon: const Icon(Icons.more_vert, color: Colors.white),
+      icon: const Icon(Symbols.more_vert, color: Colors.white),
       onSelected: (v) {
         if (v == 'pick') onPickSubtitle();
         if (v == 'style') onSubtitleStyling();

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:dartz/dartz.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/failures.dart';
@@ -17,11 +20,68 @@ import '../models/playlist_model.dart';
 class MusicRepositoryImpl implements MusicRepository {
   final MusicLocalDataSource localDataSource;
   final audio_query.OnAudioQuery audioQuery;
+  static const Set<String> _supportedCoverExtensions = {
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+  };
 
   MusicRepositoryImpl({
     required this.localDataSource,
     required this.audioQuery,
   });
+
+  String _fileExtension(String path) {
+    final fileName = path.split(RegExp(r'[\\/]')).last;
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0 || dotIndex == fileName.length - 1) {
+      return '';
+    }
+    return fileName.substring(dotIndex);
+  }
+
+  Future<Directory> _getManagedCoversDirectory() async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final coversDir = Directory(
+      '${appDir.path}${Platform.pathSeparator}music_covers',
+    );
+    if (!await coversDir.exists()) {
+      await coversDir.create(recursive: true);
+    }
+    return coversDir;
+  }
+
+  Future<void> _updatePlaylistTrackReferences({
+    required AudioTrackEntity track,
+    String? replacementTrackId,
+  }) async {
+    final playlists = await localDataSource.getAllPlaylists();
+    for (final playlist in playlists) {
+      var changed = false;
+      final updatedIds = <String>[];
+
+      for (final id in playlist.trackIds) {
+        if (id == track.id || id == track.filePath) {
+          changed = true;
+          if (replacementTrackId != null &&
+              !updatedIds.contains(replacementTrackId)) {
+            updatedIds.add(replacementTrackId);
+          }
+          continue;
+        }
+        updatedIds.add(id);
+      }
+
+      if (!changed) {
+        continue;
+      }
+
+      playlist.trackIds = updatedIds;
+      playlist.updatedAt = DateTime.now();
+      await localDataSource.savePlaylist(playlist);
+    }
+  }
 
   @override
   Future<Either<Failure, void>> syncLibrary() async {
@@ -128,6 +188,172 @@ class MusicRepositoryImpl implements MusicRepository {
       return Right(artists);
     } catch (e) {
       return Left(CacheFailure('Failed to fetch artists: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, AudioTrackEntity>> renameTrack({
+    required String filePath,
+    required String newName,
+  }) async {
+    try {
+      final trimmedName = newName.trim();
+      if (trimmedName.isEmpty) {
+        return const Left(CacheFailure('Track name cannot be empty.'));
+      }
+
+      final model = await localDataSource.getTrackByFilePath(filePath);
+      if (model == null) {
+        return Left(FileNotFoundFailure(filePath));
+      }
+
+      final sourceFile = File(filePath);
+      if (!await sourceFile.exists()) {
+        return Left(FileNotFoundFailure(filePath));
+      }
+
+      final extension = _fileExtension(filePath);
+      final targetPath =
+          '${sourceFile.parent.path}${Platform.pathSeparator}$trimmedName$extension';
+
+      if (targetPath == filePath) {
+        return Right(model.toDomain());
+      }
+
+      if (await File(targetPath).exists()) {
+        return const Left(
+          CacheFailure('A file with that name already exists.'),
+        );
+      }
+
+      await sourceFile.rename(targetPath);
+
+      final oldTrack = model.toDomain();
+      final updatedModel = AudioTrackModel(
+        filePath: targetPath,
+        title: trimmedName,
+        artist: model.artist,
+        album: model.album,
+        durationMs: model.durationMs,
+        fileSizeBytes: model.fileSizeBytes,
+        albumArtPath: model.albumArtPath,
+        trackNumber: model.trackNumber,
+        year: model.year,
+        lastPlayedAt: model.lastPlayedAt,
+        playCount: model.playCount,
+        isFavourite: model.isFavourite,
+      );
+
+      await localDataSource.deleteTrackByFilePath(filePath);
+      await localDataSource.saveTrack(updatedModel);
+      await _updatePlaylistTrackReferences(
+        track: oldTrack,
+        replacementTrackId: updatedModel.toDomain().id,
+      );
+
+      return Right(updatedModel.toDomain());
+    } on FileSystemException catch (e, stackTrace) {
+      return Left(
+        FileSystemFailure(
+          'Failed to rename track: ${e.message}',
+          stackTrace: stackTrace,
+        ),
+      );
+    } catch (e) {
+      return Left(CacheFailure('Failed to rename track: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, AudioTrackEntity>> updateTrackCover({
+    required String filePath,
+    required String coverArtPath,
+  }) async {
+    try {
+      final trimmedPath = coverArtPath.trim();
+      if (trimmedPath.isEmpty) {
+        return const Left(CacheFailure('Cover image path cannot be empty.'));
+      }
+
+      final model = await localDataSource.getTrackByFilePath(filePath);
+      if (model == null) {
+        return Left(FileNotFoundFailure(filePath));
+      }
+
+      final sourceFile = File(trimmedPath);
+      if (!await sourceFile.exists()) {
+        return Left(FileNotFoundFailure(trimmedPath));
+      }
+
+      final extension = _fileExtension(trimmedPath).toLowerCase();
+      if (!_supportedCoverExtensions.contains(extension)) {
+        return const Left(
+          CacheFailure('Unsupported cover format. Use JPG, PNG, or WEBP.'),
+        );
+      }
+
+      final coversDir = await _getManagedCoversDirectory();
+      final targetFile = File(
+        '${coversDir.path}${Platform.pathSeparator}track_${model.id}$extension',
+      );
+
+      if (sourceFile.absolute.path != targetFile.absolute.path) {
+        await sourceFile.copy(targetFile.path);
+      }
+
+      final previousManagedPath = model.albumArtPath;
+      model.albumArtPath = targetFile.path;
+      await localDataSource.saveTrack(model);
+
+      if (previousManagedPath != null &&
+          previousManagedPath != targetFile.path &&
+          previousManagedPath.startsWith(coversDir.path)) {
+        try {
+          final previousFile = File(previousManagedPath);
+          if (await previousFile.exists()) {
+            await previousFile.delete();
+          }
+        } catch (_) {
+          // Keep the new cover even if the previous managed file cleanup fails.
+        }
+      }
+
+      return Right(model.toDomain());
+    } on FileSystemException catch (e, stackTrace) {
+      return Left(
+        FileSystemFailure(
+          'Failed to store cover image: ${e.message}',
+          stackTrace: stackTrace,
+        ),
+      );
+    } catch (e) {
+      return Left(CacheFailure('Failed to update cover: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteTrack(String filePath) async {
+    try {
+      final model = await localDataSource.getTrackByFilePath(filePath);
+      if (model == null) {
+        return Left(FileNotFoundFailure(filePath));
+      }
+
+      final track = model.toDomain();
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      final deleted = await localDataSource.deleteTrackByFilePath(filePath);
+      if (!deleted) {
+        return Left(FileNotFoundFailure(filePath));
+      }
+
+      await _updatePlaylistTrackReferences(track: track);
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure('Failed to delete track: ${e.toString()}'));
     }
   }
 

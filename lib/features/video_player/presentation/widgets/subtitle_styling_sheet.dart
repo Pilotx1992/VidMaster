@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/subtitle_engine_provider.dart';
 
@@ -33,7 +34,7 @@ class SubtitleStylingSheet extends ConsumerWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(Symbols.close, color: Colors.white),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -63,7 +64,7 @@ class SubtitleStylingSheet extends ConsumerWidget {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.remove_circle_outline, color: Colors.white),
+                icon: const Icon(Symbols.remove_circle_outline, color: Colors.white),
                 onPressed: () => _updateSync(ref, -500),
               ),
               Expanded(
@@ -75,7 +76,7 @@ class SubtitleStylingSheet extends ConsumerWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+                icon: const Icon(Symbols.add_circle_outline, color: Colors.white),
                 onPressed: () => _updateSync(ref, 500),
               ),
             ],

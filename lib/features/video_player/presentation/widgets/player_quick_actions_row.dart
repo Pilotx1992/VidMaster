@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/entities/video_playback_state.dart';
 import '../providers/video_player_notifier.dart';
 import 'player_control_helpers.dart';
@@ -125,7 +126,7 @@ class PlayerQuickActionsRow extends StatelessWidget {
           width: size,
           height: size,
           child: Icon(
-            Icons.closed_caption,
+            Symbols.closed_caption,
             color: Colors.white,
             size: iconSz,
           ),
@@ -141,7 +142,7 @@ class PlayerQuickActionsRow extends StatelessWidget {
         children: [
           wrapLabel(
             circleTap(
-              icon: muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              icon: muted ? Symbols.volume_off_rounded : Symbols.volume_up_rounded,
               tooltip: muted ? 'Unmute' : 'Mute',
               onTap: () {
                 if (muted) {
@@ -158,7 +159,7 @@ class PlayerQuickActionsRow extends StatelessWidget {
             gap,
             wrapLabel(
               circleTap(
-                icon: Icons.lock_outline_rounded,
+                icon: Symbols.lock_outline_rounded,
                 tooltip: 'Lock screen',
                 onTap: () {
                   notifier.bumpControlsAutoHide();
@@ -179,7 +180,7 @@ class PlayerQuickActionsRow extends StatelessWidget {
             gap,
             wrapLabel(
               circleTap(
-                icon: Icons.fit_screen_rounded,
+                icon: Symbols.fit_screen_rounded,
                 tooltip:
                     '${aspectRatioModeLabel(state.aspectRatioMode)} — tap to change',
                 onTap: () {

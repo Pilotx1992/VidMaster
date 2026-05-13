@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:material_symbols_icons/symbols.dart';
 import '../../domain/entities/video_playback_state.dart';
 
 class PlayerErrorOverlay extends StatelessWidget {
@@ -34,7 +35,7 @@ class PlayerErrorOverlay extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, color: Colors.redAccent, size: 56),
+                const Icon(Symbols.error_outline, color: Colors.redAccent, size: 56),
                 const SizedBox(height: 16),
                 Text(
                   msg,

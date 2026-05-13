@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vidmaster/core/router/app_router.dart';
 import 'package:vidmaster/core/theme/app_theme.dart';
@@ -166,8 +167,8 @@ class _MiniPlayerLayerState extends ConsumerState<MiniPlayerLayer> {
                         visualDensity: VisualDensity.compact,
                         icon: Icon(
                           player.isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
+                              ? Symbols.pause_rounded
+                              : Symbols.play_arrow_rounded,
                           color: AppTheme.onSurfaceDark,
                         ),
                         onPressed: () =>
@@ -175,7 +176,7 @@ class _MiniPlayerLayerState extends ConsumerState<MiniPlayerLayer> {
                       ),
                       IconButton(
                         visualDensity: VisualDensity.compact,
-                        icon: Icon(Icons.close_rounded, color: AppTheme.onSurfaceDark.withValues(alpha: 0.85)),
+                        icon: Icon(Symbols.close_rounded, color: AppTheme.onSurfaceDark.withValues(alpha: 0.85)),
                         onPressed: () {
                           ref.read(miniPlayerProvider.notifier).hide();
                           notifier.pause();

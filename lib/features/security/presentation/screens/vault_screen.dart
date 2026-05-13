@@ -1,9 +1,11 @@
 import 'dart:math' as math;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:intl/intl.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../domain/entities/encrypted_file_metadata.dart';
 import '../providers/vault_provider.dart';
@@ -44,7 +46,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_moderator),
+            icon: const Icon(Symbols.add_moderator),
             tooltip: 'Add to Vault',
             onPressed: () => _showAddFileDialog(context, ref),
           ),
@@ -77,7 +79,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.security, color: Color(0xFFF9A825), size: 40),
+          const HugeIcon(
+            icon: HugeIcons.strokeRoundedSecurityLock,
+            color: Color(0xFFF9A825),
+            size: 42,
+            strokeWidth: 1.6,
+          ),
           const SizedBox(width: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,8 +113,12 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock_outline,
-              size: 80, color: Colors.white.withValues(alpha: 0.1)),
+          HugeIcon(
+            icon: HugeIcons.strokeRoundedSquareLock02,
+            size: 96,
+            color: Colors.white.withValues(alpha: 0.12),
+            strokeWidth: 1.4,
+          ),
           const SizedBox(height: 16),
           const Text(
             'Your vault is empty',
@@ -116,7 +127,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen> {
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => _showAddFileDialog(context, ref),
-            icon: const Icon(Icons.add),
+            icon: const Icon(Symbols.add),
             label: const Text('Add Private Files'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF9A825),
@@ -262,7 +273,7 @@ class _VaultItemTile extends ConsumerWidget {
             color: const Color(0xFF0D1B2A),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.movie_outlined, color: Colors.white38),
+          child: const Icon(Symbols.movie, color: Colors.white38),
         ),
         title: Text(
           item.originalFileName,
@@ -276,14 +287,14 @@ class _VaultItemTile extends ConsumerWidget {
           style: const TextStyle(color: Colors.white54, fontSize: 12),
         ),
         trailing: PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, color: Colors.white54),
+          icon: const Icon(Symbols.more_vert, color: Colors.white54),
           color: const Color(0xFF1C2B3A),
           onSelected: (value) => _handleAction(context, ref, value),
           itemBuilder: (context) => [
             const PopupMenuItem(
               value: 'restore',
               child: ListTile(
-                leading: Icon(Icons.unarchive, color: Color(0xFFF9A825)),
+                leading: Icon(Symbols.unarchive, color: Color(0xFFF9A825)),
                 title: Text('Restore to Library',
                     style: TextStyle(color: Colors.white)),
                 contentPadding: EdgeInsets.zero,
@@ -292,7 +303,7 @@ class _VaultItemTile extends ConsumerWidget {
             const PopupMenuItem(
               value: 'delete',
               child: ListTile(
-                leading: Icon(Icons.delete_forever, color: Colors.redAccent),
+                leading: Icon(Symbols.delete_forever, color: Colors.redAccent),
                 title: Text('Delete Permanently',
                     style: TextStyle(color: Colors.white)),
                 contentPadding: EdgeInsets.zero,

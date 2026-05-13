@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -158,12 +159,12 @@ class _VideoBrowserScreenState extends ConsumerState<VideoBrowserScreen> {
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                        child: Icon(Icons.link, color: Theme.of(context).colorScheme.primary),
+                        child: Icon(Symbols.link, color: Theme.of(context).colorScheme.primary),
                       ),
                       title: Text(detectedUrl, maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: const Text('Direct Media Link'),
                       trailing: IconButton.filledTonal(
-                        icon: const Icon(Icons.download),
+                        icon: const Icon(Symbols.download),
                         onPressed: () {
                           final fileName = "sniffed_${DateTime.now().millisecondsSinceEpoch}.mp4";
                           ref.read(downloaderProvider.notifier).startDownload(
@@ -201,7 +202,7 @@ class _VideoBrowserScreenState extends ConsumerState<VideoBrowserScreen> {
             controller: _urlController,
             decoration: const InputDecoration(
               hintText: 'Search or enter URL',
-              prefixIcon: Icon(Icons.search, size: 20),
+              prefixIcon: Icon(Symbols.search, size: 20),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(vertical: 10),
             ),
@@ -212,7 +213,7 @@ class _VideoBrowserScreenState extends ConsumerState<VideoBrowserScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Symbols.refresh),
             onPressed: () => webViewController?.reload(),
           ),
         ],
@@ -258,8 +259,8 @@ class _VideoBrowserScreenState extends ConsumerState<VideoBrowserScreen> {
         child: FloatingActionButton.extended(
           onPressed: isExtracting ? null : _onDownloadPressed,
           icon: isMagicExtractable 
-              ? const Icon(Icons.auto_awesome) 
-              : const Icon(Icons.download),
+              ? const Icon(Symbols.auto_awesome) 
+              : const Icon(Symbols.download),
           label: Text(isMagicExtractable 
               ? 'Magic Download' 
               : '${detectedVideoUrls.length} sniffed'),

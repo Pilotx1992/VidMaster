@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/video_playback_state.dart';
 import '../providers/video_player_notifier.dart';
+import '../providers/video_player_provider.dart';
 import 'player_more_menu.dart';
 import 'player_quick_actions_row.dart';
 import 'player_seek_section.dart';
@@ -45,7 +47,18 @@ class PortraitPlayerControls extends StatelessWidget {
           title: title,
           onBack: onBack,
           actions: [
-            const VideoCastButton(),
+            Consumer(
+              builder: (context, ref, _) {
+                return VideoCastButton(
+                  video: state.currentVideo,
+                  position: state.position,
+                  duration: state.duration,
+                  onCastStarted: () {
+                    ref.read(videoPlayerProvider.notifier).pause();
+                  },
+                );
+              },
+            ),
             PlayerMoreMenu(
               onPickSubtitle: onPickSubtitle,
               onSubtitleStyling: onSubtitleStyling,

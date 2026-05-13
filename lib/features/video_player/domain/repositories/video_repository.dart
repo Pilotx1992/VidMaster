@@ -112,4 +112,14 @@ abstract interface class VideoRepository {
   /// from the local cache. If the file write fails (permission etc.) the DB
   /// row is left untouched so the library stays consistent with disk.
   Future<Either<Failure, void>> deleteVideo(String filePath);
+
+  /// Renames the underlying video file on device storage and updates the
+  /// cached row to point at the new path in the same folder.
+  ///
+  /// [newName] is the desired basename without moving the file to a new
+  /// directory. The original extension is preserved automatically.
+  Future<Either<Failure, VideoEntity>> renameVideo({
+    required String filePath,
+    required String newName,
+  });
 }

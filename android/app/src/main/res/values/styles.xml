@@ -19,4 +19,30 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+
+    <style name="VidMasterNativeCastButtonLightIconTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowBackground">#FF000000</item>
+        <item name="android:colorBackground">#FF000000</item>
+        <item name="mediaRouteButtonStyle">@style/VidMasterNativeCastButtonLightIcon</item>
+    </style>
+
+    <style name="VidMasterNativeCastButtonDarkIconTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowBackground">#FFFFFFFF</item>
+        <item name="android:colorBackground">#FFFFFFFF</item>
+        <item name="mediaRouteButtonStyle">@style/VidMasterNativeCastButtonDarkIcon</item>
+    </style>
+
+    <style name="VidMasterNativeCastButtonLightIcon" parent="@style/Widget.MediaRouter.MediaRouteButton">
+        <item name="mediaRouteButtonTint">#FFFFFFFF</item>
+        <item name="android:minWidth">40dp</item>
+        <item name="android:minHeight">40dp</item>
+    </style>
+
+    <style name="VidMasterNativeCastButtonDarkIcon" parent="@style/Widget.MediaRouter.Light.MediaRouteButton">
+        <item name="mediaRouteButtonTint">#DE000000</item>
+        <item name="android:minWidth">40dp</item>
+        <item name="android:minHeight">40dp</item>
+    </style>
 </resources>

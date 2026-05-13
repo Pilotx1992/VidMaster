@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -30,38 +31,38 @@ class MiniPlayerBar extends ConsumerWidget {
         final shouldShow = currentTrack != null && !isNowPlayingRoute;
 
         return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      transitionBuilder: (child, animation) {
-        final slideAnimation = Tween<Offset>(
-          begin: const Offset(0, 1),
-          end: Offset.zero,
-        ).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-          ),
-        );
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) {
+            final slideAnimation = Tween<Offset>(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ),
+            );
 
-        return SlideTransition(
-          position: slideAnimation,
-          child: FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
-        );
-      },
-      child: !shouldShow
-          ? const SizedBox(
-              key: ValueKey('mini_player_hidden'),
-            )
-          : _MiniPlayerContainer(
-              key: const ValueKey('mini_player'),
-              currentTrack: currentTrack,
-              currentIndex: currentIndex,
-              queue: queue,
-            ),
+            return SlideTransition(
+              position: slideAnimation,
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            );
+          },
+          child: !shouldShow
+              ? const SizedBox(
+                  key: ValueKey('mini_player_hidden'),
+                )
+              : _MiniPlayerContainer(
+                  key: const ValueKey('mini_player'),
+                  currentTrack: currentTrack,
+                  currentIndex: currentIndex,
+                  queue: queue,
+                ),
         );
       },
     );
@@ -180,7 +181,7 @@ class _CloseButton extends ConsumerWidget {
         await notifier.stopAndClear();
       },
       icon: Icon(
-        Icons.close_rounded,
+        Symbols.close_rounded,
         size: 20,
         color: cs.onSurfaceVariant,
       ),
@@ -210,8 +211,8 @@ class _PlayPauseButton extends ConsumerWidget {
             ScaleTransition(scale: animation, child: child),
         child: Icon(
           isPlaying
-              ? Icons.pause_circle_filled_rounded
-              : Icons.play_circle_fill_rounded,
+              ? Symbols.pause_circle_filled_rounded
+              : Symbols.play_circle_rounded,
           key: ValueKey(isPlaying),
           size: 34,
           color: cs.primary,
@@ -232,7 +233,7 @@ class _MoreButton extends ConsumerWidget {
     return IconButton(
       onPressed: () => _showMenu(context, ref),
       icon: Icon(
-        Icons.more_vert_rounded,
+        Symbols.more_vert_rounded,
         color: cs.onSurfaceVariant,
       ),
       splashRadius: 20,
@@ -248,34 +249,37 @@ class _MoreButton extends ConsumerWidget {
       showDragHandle: true,
       backgroundColor: cs.surface,
       builder: (_) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.skip_previous_rounded),
-                title: const Text('Previous'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await notifier.previous();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.skip_next_rounded),
-                title: const Text('Next'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await notifier.next();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.stop_circle_rounded),
-                title: const Text('Stop Playback'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await notifier.stopAndClear();
-                },
-              ),
-            ],
+        return Directionality(
+          textDirection: TextDirection.ltr,
+          child: SafeArea(
+            child: Wrap(
+              children: [
+                ListTile(
+                  leading: const Icon(Symbols.skip_previous_rounded),
+                  title: const Text('Previous'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await notifier.previous();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Symbols.skip_next_rounded),
+                  title: const Text('Next'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await notifier.next();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Symbols.stop_circle_rounded),
+                  title: const Text('Stop Playback'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await notifier.stopAndClear();
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -357,7 +361,7 @@ class _MiniPlayerArtwork extends StatelessWidget {
 
   Widget _fallback(ColorScheme cs) {
     return Icon(
-      Icons.music_note_rounded,
+      Symbols.music_note_rounded,
       size: 22,
       color: cs.onSurfaceVariant,
     );

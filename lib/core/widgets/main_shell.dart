@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -78,7 +79,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         content: Row(
           children: [
             Icon(
-              Icons.link,
+              Symbols.link,
               color: Theme.of(context).colorScheme.onInverseSurface,
             ),
             const SizedBox(width: 12),
@@ -284,7 +285,7 @@ class _PremiumBottomBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _NavItem(
-              icon: Icons.movie_creation_outlined,
+              icon: Symbols.movie_creation,
               label: 'Video',
               selected: selectedIndex == 0,
               onTap: () => onTap(0),
@@ -300,7 +301,7 @@ class _PremiumBottomBar extends StatelessWidget {
               onTap: () => onTap(1),
             ),
             _NavItem(
-              icon: Icons.playlist_play_rounded,
+              icon: Symbols.playlist_play_rounded,
               label: 'Playlist',
               selected: selectedIndex == 2,
               onTap: () => onTap(2),
